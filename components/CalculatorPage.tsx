@@ -54,10 +54,14 @@ const CalculatorPage: React.FC = () => {
   const handleCalculate = () => {
     if (algorithm && isFormComplete) {
       // Vercel Analytics custom event
-      if ((window as any).va) {
-        const country = COUNTRIES.find(c => c.value === selectedValue);
-        const guidelineLabel = country ? country.label : 'Unknown';
-        (window as any).va.track('GuidelineUsed', { guideline: guidelineLabel });
+      try {
+        if ((window as any).va) {
+          const country = COUNTRIES.find(c => c.value === selectedValue);
+          const guidelineLabel = country ? country.label : 'Unknown';
+          (window as any).va.track('GuidelineUsed', { guideline: guidelineLabel });
+        }
+      } catch (error) {
+        console.error('Failed to track Vercel Analytics event:', error);
       }
       
       const calculationResult = algorithm.calculate(formData as FormData);
