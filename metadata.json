@@ -1,5 +1,5 @@
-
 {
-  "name": "UveCheck: Uveitis Risk Predictor",
-  "description": "A web application to predict the risk of uveitis in children based on various international medical guidelines. Users can select a guideline, input patient data, and receive a risk assessment."
+  "name": "Uvecheck paper",
+  "description": "",
+  "requestFramePermissions": []
 }
