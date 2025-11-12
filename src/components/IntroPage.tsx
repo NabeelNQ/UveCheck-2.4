@@ -42,8 +42,8 @@ const IntroPage: React.FC<IntroPageProps> = ({ onStart }) => {
         </p>
       </section>
 
-      {/* Get Started button moved BEFORE the guideline title */}
-      <div className="pt-4 mt-8 flex justify-center">
+      {/* Get Started button with equal spacing before and after */}
+      <div className="my-8 flex justify-center">
         <button
           onClick={onStart}
           className="w-full sm:w-auto bg-black hover:bg-gray-800 text-white font-bold py-3 px-10 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
