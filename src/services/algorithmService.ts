@@ -16,38 +16,56 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
         name: 'United Kingdom Guidelines',
         questions: ['dateOfBirth', 'dateOfDiagnosis', 'subDiagnosis', 'anaPositive'],
         subDiagnosisOptions: [
-            'Persistent Oligoarthritis', 'Extended Oligoarthritis', 'Psoriatic Arthritis', 
-            'Enthesitis-related Arthritis', 'RF Negative Polyarthritis', 'Systemic Onset Arthritis', 
+            'Persistent Oligoarthritis', 'Extended Oligoarthritis', 'Psoriatic Arthritis',
+            'Enthesitis-related Arthritis', 'RF Negative Polyarthritis', 'Systemic Onset Arthritis',
             'RF Positive Polyarthritis'
         ],
         calculate: (data: FormData): CalculationResult => {
             const dob = parseDate(data.dateOfBirth);
             const dod = parseDate(data.dateOfDiagnosis);
             if (!dob || !dod) return { riskLevel: 'Error', recommendation: 'Invalid date format', followup: '', justification: '' };
-
-            const timeu = calculateYears(dod);
-            const ageAtOnset = (dod.getTime() - dob.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-
+    
+            // approximate years as float
+            const today = new Date();
+            const timeSinceDiagnosis = yearsDaysDiff(dod, today);
+            const timeu = timeSinceDiagnosis.years + (timeSinceDiagnosis.days / 365.25);
+            const ageAtOnsetObj = yearsDaysDiff(dob, dod);
+            const ageAtOnset = ageAtOnsetObj.years + (ageAtOnsetObj.days / 365.25);
+    
             let risk_level = "No Risk";
             let followup = "None";
             let recommendation = "None";
             let justification = "None";
-
+    
             const group1 = ['Persistent Oligoarthritis', 'Extended Oligoarthritis', 'Psoriatic Arthritis', 'Enthesitis-related Arthritis'].includes(data.subDiagnosis);
             const group2 = data.subDiagnosis === 'RF Negative Polyarthritis';
             const group3 = ['Systemic Onset Arthritis', 'RF Positive Polyarthritis'].includes(data.subDiagnosis);
-            
-            // Very Low Risk override conditions
-            if ( (group1 && ( (ageAtOnset < 3 && timeu > 8) || (ageAtOnset >= 3 && ageAtOnset < 5 && timeu > 6) || (ageAtOnset >= 5 && ageAtOnset < 9 && timeu > 3) || (ageAtOnset >= 9 && timeu > 1) )) ||
-                 (group2 && data.anaPositive && ( (ageAtOnset < 6 && timeu > 5) || (ageAtOnset >= 6 && ageAtOnset <= 9 && timeu > 2) || (ageAtOnset > 9 && timeu > 1) )) ||
-                 (group2 && !data.anaPositive && ( (ageAtOnset < 7 && timeu > 5) || (ageAtOnset >= 7 && timeu > 1) ))
+    
+            // Very Low Risk override (from UK logic)
+            if (
+                (group1 && (
+                    (ageAtOnset < 3 && timeu > 8) ||
+                    (ageAtOnset >= 3 && ageAtOnset < 5 && timeu > 6) ||
+                    (ageAtOnset >= 5 && ageAtOnset < 9 && timeu > 3) ||
+                    (ageAtOnset >= 9 && timeu > 1)
+                )) ||
+                (group2 && data.anaPositive && (
+                    (ageAtOnset < 6 && timeu > 5) ||
+                    (ageAtOnset >= 6 && ageAtOnset <= 9 && timeu > 2) ||
+                    (ageAtOnset > 9 && timeu > 1)
+                )) ||
+                (group2 && !data.anaPositive && (
+                    (ageAtOnset < 7 && timeu > 5) ||
+                    (ageAtOnset >= 7 && timeu > 1)
+                ))
             ) {
-                 return { riskLevel: "Very Low Risk", recommendation: "No screening required", followup: "None", justification: "Very low risk due to long time since diagnosis." };
+                return { riskLevel: "Very Low Risk", recommendation: "No screening required", followup: "None", justification: "Very low risk due to long time since diagnosis." };
             }
-
+    
+            // Group 1
             if (group1) {
                 risk_level = "High Risk";
-                recommendation = "Every 3 - 4 Months";
+                recommendation = "every 3 - 4 Months";
                 if (ageAtOnset < 3) {
                     followup = "Follow up continues for 8 years";
                     justification = "High risk due to onset age <3 years.";
@@ -61,9 +79,11 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
                     followup = "Follow up continues for 1 year";
                     justification = "High risk due to onset age between 9 and 11 years.";
                 }
-            } else if (group2) {
+            }
+            // Group 2 (RF Negative Polyarthritis)
+            else if (group2) {
                 risk_level = "High Risk";
-                recommendation = "Every 3 - 4 Months";
+                recommendation = "every 3 - 4 Months";
                 if (data.anaPositive) {
                     if (ageAtOnset < 6) {
                         followup = "Follow up continues for 5 years";
@@ -75,7 +95,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
                         followup = "Follow up continues for 1 year";
                         justification = "High risk due to onset age >9 with positive ANA.";
                     }
-                } else { // ANA negative
+                } else {
                     if (ageAtOnset < 7) {
                         followup = "Follow up continues for 5 years";
                         justification = "High risk due to early onset age with negative ANA.";
@@ -84,21 +104,37 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
                         justification = "High risk due to onset age at or after 7 years with negative ANA.";
                     }
                 }
-            } else if (group3) {
-                risk_level = "Very Low Risk";
-                recommendation = "Screen at Diagnosis";
-                followup = "No Follow up required";
-                justification = "Very low risk: RF positive or systemic onset arthritis.";
             }
-
-            // Special recommendation prefix
+            // Group 3 (Systemic Onset / RF+)
+            else if (group3) {
+                if (ageAtOnset < 7) {
+                    risk_level = "High Risk";
+                    recommendation = "every 3 - 4 Months";
+                    followup = "Follow up continues for 5 years";
+                    justification = "High risk due to onset age <7 years.";
+                } else if (ageAtOnset >= 7 && ageAtOnset <= 16) {
+                    risk_level = "High Risk";
+                    recommendation = "Every 3 - 4 Months";
+                    followup = "Follow up continues for 1 year";
+                    justification = "High risk due to onset age between 7 and 16 years.";
+                }
+            }
+            // Group unknown
+            else {
+                risk_level = "No Risk";
+                recommendation = "None";
+                followup = "None";
+                justification = "No guideline available for this diagnosis.";
+            }
+    
+            // Keep same prefix logic as original file
             if (recommendation !== "Screen at Diagnosis" && recommendation !== "No screening required") {
                 recommendation = `Screen for every 2 months, for the first 6 months. Then screen ${recommendation}`;
             }
-
+    
             return { riskLevel: risk_level, recommendation, followup, justification };
         }
-    },
+    },    
     nordic: {
         name: 'Nordic Guidelines',
         questions: ['dateOfBirth', 'dateOfDiagnosis', 'subDiagnosis', 'anaPositive', 'onMethotrexate', 'biologicalTreatment'],
