@@ -78,15 +78,18 @@ const Calendar: React.FC<CalendarProps> = ({ onDateSelect, minDate, maxDate }) =
     if (max) max.setHours(0, 0, 0, 0);
 
     const cells = [];
-    let currentDate = new Date(startDate);
 
     for (let i = 0; i < 42; i++) {
-      const dateKey = currentDate.toISOString().split('T')[0];
-      const day = currentDate.getDate();
+      const dateForCell = new Date(startDate);
+      dateForCell.setDate(startDate.getDate() + i);
       
-      const isCurrentMonth = currentDate.getMonth() === month;
-      const isToday = currentDate.getTime() === today.getTime();
-      const isDisabled = (min && currentDate < min) || (max && currentDate > max);
+      // Use toDateString for key to avoid timezone issues with toISOString at midnight
+      const dateKey = dateForCell.toDateString();
+      const day = dateForCell.getDate();
+      
+      const isCurrentMonth = dateForCell.getMonth() === month;
+      const isToday = dateForCell.getTime() === today.getTime();
+      const isDisabled = (min && dateForCell < min) || (max && dateForCell > max);
 
       const getCellClasses = () => {
         if (isDisabled) return 'text-gray-300 cursor-not-allowed';
@@ -105,12 +108,15 @@ const Calendar: React.FC<CalendarProps> = ({ onDateSelect, minDate, maxDate }) =
         <div
           key={dateKey}
           className={`flex items-center justify-center h-8 w-8 text-sm rounded-full transition-colors duration-200 ${getCellClasses()}`}
-          onClick={() => !isDisabled && isCurrentMonth && onDateSelect(new Date(currentDate))}
+          onClick={() => {
+            if (!isDisabled && isCurrentMonth) {
+                onDateSelect(dateForCell);
+            }
+          }}
         >
           {day}
         </div>
       );
-      currentDate.setDate(currentDate.getDate() + 1);
     }
     return <div className="grid grid-cols-7 p-2">{cells}</div>;
   };
