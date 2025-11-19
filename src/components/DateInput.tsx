@@ -16,6 +16,8 @@ const DateInput: React.FC<DateInputProps> = ({ label, value, onChange, minDate, 
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let input = e.target.value.replace(/[^\d/]/g, '');
+    console.log('[DateInput] handleInputChange raw:', e.target.value, '-> sanitized:', input);
+
 
     if (input.length === 2 && !input.includes('/')) {
         input += '/';
@@ -32,6 +34,7 @@ const DateInput: React.FC<DateInputProps> = ({ label, value, onChange, minDate, 
     const day = String(date.getDate()).padStart(2, '0');
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const year = date.getFullYear();
+    console.log('[DateInput] handleDateSelect clicked:', date.toISOString(), '-> formatted:', `${day}/${month}/${year}`);
     onChange(`${day}/${month}/${year}`);
     setShowCalendar(false);
   };
