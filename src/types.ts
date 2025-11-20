@@ -1,3 +1,4 @@
+
 export type QuestionKey = 'dateOfBirth' | 'dateOfDiagnosis' | 'subDiagnosis' | 'anaPositive' | 'onMethotrexate' | 'biologicalTreatment';
 
 export interface FormData {
@@ -26,6 +27,7 @@ export interface Algorithm {
   questions: QuestionKey[];
   subDiagnosisOptions: string[];
   biologicalTreatmentOptions?: string[];
+  maxAge?: number;
   calculate: (data: FormData) => CalculationResult;
 }
 

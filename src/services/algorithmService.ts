@@ -40,7 +40,8 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             // Very Low Risk override conditions
             if ( (group1 && ( (ageAtOnset < 3 && timeu > 8) || (ageAtOnset >= 3 && ageAtOnset < 5 && timeu > 6) || (ageAtOnset >= 5 && ageAtOnset < 9 && timeu > 3) || (ageAtOnset >= 9 && timeu > 1) )) ||
                  (group2 && data.anaPositive && ( (ageAtOnset < 6 && timeu > 5) || (ageAtOnset >= 6 && ageAtOnset <= 9 && timeu > 2) || (ageAtOnset > 9 && timeu > 1) )) ||
-                 (group2 && !data.anaPositive && ( (ageAtOnset < 7 && timeu > 5) || (ageAtOnset >= 7 && timeu > 1) ))
+                 (group2 && !data.anaPositive && ( (ageAtOnset < 7 && timeu > 5) || (ageAtOnset >= 7 && timeu > 1) )) ||
+                 (group3 && ( (ageAtOnset < 7 && timeu > 5) || (ageAtOnset >= 7 && timeu > 1) ))
             ) {
                  return { riskLevel: "Very Low Risk", recommendation: "No screening required", followup: "None", justification: "Very low risk due to long time since diagnosis." };
             }
@@ -85,14 +86,21 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
                     }
                 }
             } else if (group3) {
-                risk_level = "Very Low Risk";
-                recommendation = "Screen at Diagnosis";
-                followup = "No Follow up required";
-                justification = "Very low risk: RF positive or systemic onset arthritis.";
+                if (ageAtOnset < 7) {
+                    risk_level = "High Risk";
+                    recommendation = "Every 3 - 4 Months";
+                    followup = "Follow up continues for 5 years";
+                    justification = "High risk due to onset age <7 years.";
+                } else if (ageAtOnset >= 7 && ageAtOnset <= 16) {
+                    risk_level = "High Risk";
+                    recommendation = "Every 3 - 4 Months";
+                    followup = "Follow up continues for 1 year";
+                    justification = "High risk due to onset age between 7 and 16 years.";
+                }
             }
 
             // Special recommendation prefix
-            if (recommendation !== "Screen at Diagnosis" && recommendation !== "No screening required") {
+            if (recommendation !== "Screen at Diagnosis" && recommendation !== "No screening required" && recommendation !== "None") {
                 recommendation = `Screen for every 2 months, for the first 6 months. Then screen ${recommendation}`;
             }
 
@@ -101,6 +109,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
     },
     nordic: {
         name: 'Nordic Guidelines',
+        maxAge: 16,
         questions: ['dateOfBirth', 'dateOfDiagnosis', 'subDiagnosis', 'anaPositive', 'onMethotrexate', 'biologicalTreatment'],
         subDiagnosisOptions: [
             'Oligoarthritis', 'RF Negative Polyarthritis', 'Psoriatic Arthritis', 
@@ -317,6 +326,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
     },
     spain_portugal: {
         name: 'Spain and Portugal Guidelines',
+        maxAge: 16,
         questions: ['dateOfBirth', 'dateOfDiagnosis', 'subDiagnosis', 'anaPositive'],
         subDiagnosisOptions: [
             'Persistent Oligoarthritis', 'Extended Oligoarthritis', 'RF Negative Polyarthritis', 
@@ -385,6 +395,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
     },
     czech_slovak: {
         name: 'Czech and Slovak Guidelines',
+        maxAge: 18,
         questions: ['dateOfBirth', 'dateOfDiagnosis', 'subDiagnosis', 'anaPositive'],
         subDiagnosisOptions: [
             'Persistent Oligoarthritis', 'Extended Oligoarthritis', 'RF Negative Polyarthritis', 
@@ -461,6 +472,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
     },
     argentina: {
         name: 'Argentina Guidelines',
+        maxAge: 21,
         questions: ['dateOfBirth', 'dateOfDiagnosis', 'subDiagnosis', 'anaPositive'],
         subDiagnosisOptions: [
             'Persistent Oligoarthritis', 'Extended Oligoarthritis', 'RF Negative Polyarthritis', 
