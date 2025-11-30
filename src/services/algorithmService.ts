@@ -101,7 +101,9 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
 
             // Special recommendation prefix
             if (recommendation !== "Screen at Diagnosis" && recommendation !== "No screening required" && recommendation !== "None") {
-                recommendation = `Screen for every 2 months, for the first 6 months. Then screen ${recommendation}`;
+                // Lowercase the first letter of the subsequent recommendation to fit the sentence structure
+                const lowerCaseRec = recommendation.charAt(0).toLowerCase() + recommendation.slice(1);
+                recommendation = `Screen for every 2 months, for the first 6 months. Then screen ${lowerCaseRec}`;
             }
 
             return { riskLevel: risk_level, recommendation, followup, justification };
