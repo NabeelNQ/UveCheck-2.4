@@ -36,7 +36,8 @@ const Form: React.FC<FormProps> = ({
   }
 
   const currentAge = dobDate ? yearsDaysDiff(dobDate, today).years : null;
-  const isAgeLimitExceeded = algorithm?.maxAge && currentAge !== null && currentAge > algorithm.maxAge;
+  // Block if current age is greater than or equal to maxAge (e.g., 16 or above blocks for maxAge 16)
+  const isAgeLimitExceeded = algorithm?.maxAge && currentAge !== null && currentAge >= algorithm.maxAge;
   
   return (
     <div className="space-y-8 animate-fade-in">

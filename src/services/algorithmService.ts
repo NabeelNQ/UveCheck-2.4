@@ -14,6 +14,7 @@ const calculateYears = (date: Date): number => {
 const algorithms: Record<AlgorithmKey, Algorithm> = {
     uk: {
         name: 'United Kingdom Guidelines',
+        maxAge: 16,
         questions: ['dateOfBirth', 'dateOfDiagnosis', 'subDiagnosis', 'anaPositive'],
         subDiagnosisOptions: [
             'Persistent Oligoarthritis', 'Extended Oligoarthritis', 'Psoriatic Arthritis', 
@@ -58,9 +59,9 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
                 } else if (ageAtOnset >= 5 && ageAtOnset < 9) {
                     followup = "Follow up continues for 3 years";
                     justification = "High risk due to onset age between 5 and 8 years.";
-                } else if (ageAtOnset >= 9 && ageAtOnset < 12) {
+                } else if (ageAtOnset >= 9 && ageAtOnset < 16) {
                     followup = "Follow up continues for 1 year";
-                    justification = "High risk due to onset age between 9 and 11 years.";
+                    justification = "High risk due to onset age at or above 9 years.";
                 }
             } else if (group2) {
                 risk_level = "High Risk";
@@ -91,11 +92,11 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
                     recommendation = "Every 3 - 4 Months";
                     followup = "Follow up continues for 5 years";
                     justification = "High risk due to onset age <7 years.";
-                } else if (ageAtOnset >= 7 && ageAtOnset <= 16) {
+                } else if (ageAtOnset >= 7 && ageAtOnset < 16) {
                     risk_level = "High Risk";
                     recommendation = "Every 3 - 4 Months";
                     followup = "Follow up continues for 1 year";
-                    justification = "High risk due to onset age between 7 and 16 years.";
+                    justification = "High risk due to onset age at or above 7 years.";
                 }
             }
 
