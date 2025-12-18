@@ -14,8 +14,8 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
         questions: ['dateOfBirth', 'dateOfDiagnosis', 'subDiagnosis', 'anaPositive'],
         subDiagnosisOptions: [
             'Persistent Oligoarthritis', 'Extended Oligoarthritis', 'Psoriatic Arthritis', 
-            'Enthesitis-related Arthritis', 'RF Negative Polyarthritis', 'Systemic Onset Arthritis', 
-            'RF Positive Polyarthritis'
+            'Enthesitis-related Arthritis', 'RF Negative Polyarthritis', 'RF Positive Polyarthritis',
+            'Systemic Onset Arthritis'
         ],
         calculate: (data: FormData): CalculationResult => {
             const dob = parseDate(data.dateOfBirth);
@@ -37,73 +37,103 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             const group2 = data.subDiagnosis === 'RF Negative Polyarthritis';
             const group3 = ['Systemic Onset Arthritis', 'RF Positive Polyarthritis'].includes(data.subDiagnosis);
             
-            // Very Low Risk override conditions
-            if ( (group1 && ( (ageAtOnset < 3 && timeu > 8) || (ageAtOnset >= 3 && ageAtOnset < 5 && timeu > 6) || (ageAtOnset >= 5 && ageAtOnset < 9 && timeu > 3) || (ageAtOnset >= 9 && timeu > 1) )) ||
-                 (group2 && data.anaPositive && ( (ageAtOnset < 6 && timeu > 5) || (ageAtOnset >= 6 && ageAtOnset <= 9 && timeu > 2) || (ageAtOnset > 9 && timeu > 1) )) ||
-                 (group2 && !data.anaPositive && ( (ageAtOnset < 7 && timeu > 5) || (ageAtOnset >= 7 && timeu > 1) )) ||
-                 (group3 && ( (ageAtOnset < 7 && timeu > 5) || (ageAtOnset >= 7 && timeu > 1) ))
-            ) {
-                 return { riskLevel: "Very Low Risk", recommendation: "No screening required", followup: "None", justification: "Very low risk due to long time since diagnosis." };
+            // Logic for Very Low Risk Override
+            const isVLRGroup1 = group1 && (
+                (ageAtOnset < 3 && timeu > 8) ||
+                (ageAtOnset >= 3 && ageAtOnset < 5 && timeu > 6) ||
+                (ageAtOnset >= 5 && ageAtOnset < 9 && timeu > 3) ||
+                (ageAtOnset >= 9 && timeu > 1)
+            );
+
+            const isVLRGroup2ANA = group2 && data.anaPositive && (
+                (ageAtOnset < 6 && timeu > 5) ||
+                (ageAtOnset >= 6 && ageAtOnset <= 9 && timeu > 2) ||
+                (ageAtOnset > 9 && timeu > 1)
+            );
+
+            const isVLRGroup2NoANA = group2 && !data.anaPositive && (
+                (ageAtOnset < 7 && timeu > 5) ||
+                (ageAtOnset >= 7 && timeu > 1)
+            );
+
+            if (isVLRGroup1) {
+                risk_level = "Very Low Risk";
+                recommendation = "No screening required";
+                followup = "None";
+                justification = "Very low risk due to long time since diagnosis.";
+            } else if (isVLRGroup2ANA) {
+                risk_level = "Very Low Risk";
+                recommendation = "No screening required";
+                followup = "None";
+                justification = "Very low risk due to long time since diagnosis with positive ANA.";
+            } else if (isVLRGroup2NoANA) {
+                risk_level = "Very Low Risk";
+                recommendation = "No screening required";
+                followup = "None";
+                justification = "Very low risk due to long time since diagnosis with negative ANA.";
+            } else {
+                // Logic for Group 1: Persistent Oligo/Extended Oligo/Psoriatic/ERA
+                if (group1) {
+                    risk_level = "High Risk";
+                    recommendation = "every 3 - 4 Months";
+                    if (ageAtOnset < 3) {
+                        followup = "Follow up continues for 8 years";
+                        justification = "High risk due to onset age being less than 3 years.";
+                    } else if (ageAtOnset >= 3 && ageAtOnset < 5) {
+                        followup = "Follow up continues for 6 years";
+                        justification = "High risk due to onset age between 3 and 4 years.";
+                    } else if (ageAtOnset >= 5 && ageAtOnset < 9) {
+                        followup = "Follow up continues for 3 years";
+                        justification = "High risk due to onset age between 5 and 8 years.";
+                    } else if (ageAtOnset >= 9) {
+                        followup = "Follow up continues for 1 year";
+                        justification = "High risk due to onset age at or above 9 years.";
+                    }
+                }
+                // Logic for Group 2: RF- Polyarthritis
+                else if (group2) {
+                    risk_level = "High Risk";
+                    recommendation = "every 3 - 4 Months";
+                    if (data.anaPositive) {
+                        if (ageAtOnset < 6) {
+                            followup = "Follow up continues for 5 years";
+                            justification = "High risk due to onset age below 6 years with positive ANA.";
+                        } else if (ageAtOnset >= 6 && ageAtOnset <= 9) {
+                            followup = "Follow up continues for 2 years";
+                            justification = "High risk due to onset age between 6 and 9 years with positive ANA.";
+                        } else if (ageAtOnset > 9) {
+                            followup = "Follow up continues for 1 year";
+                            justification = "High risk due to onset age at or above 9 years with positive ANA.";
+                        }
+                    } else {
+                        if (ageAtOnset < 7) {
+                            followup = "Follow up continues for 5 years";
+                            justification = "High risk due to onset age of less than 7 years with negative ANA.";
+                        } else if (ageAtOnset >= 7) {
+                            followup = "Follow up continues for 1 year";
+                            justification = "High risk due to onset age at or above 7 years with negative ANA.";
+                        }
+                    }
+                }
+                // Logic for Group 3: Systemic Onset Arthritis or RF Positive Polyarthritis
+                else if (group3) {
+                    risk_level = "Very Low Risk";
+                    recommendation = "at Diagnosis";
+                    followup = "No Follow up required";
+                    justification = "Very low risk: RF positive or systemic onset arthritis.";
+                }
+                // Logic for Invalid sub-diagnosis (Group 4)
+                else {
+                    risk_level = "No Risk";
+                    recommendation = "None";
+                    followup = "None";
+                    justification = "No guideline available for this diagnosis.";
+                }
             }
 
-            if (group1) {
-                risk_level = "High Risk";
-                recommendation = "Every 3 - 4 Months";
-                if (ageAtOnset < 3) {
-                    followup = "Follow up continues for 8 years";
-                    justification = "High risk due to onset age <3 years.";
-                } else if (ageAtOnset >= 3 && ageAtOnset < 5) {
-                    followup = "Follow up continues for 6 years";
-                    justification = "High risk due to onset age between 3 and 4 years.";
-                } else if (ageAtOnset >= 5 && ageAtOnset < 9) {
-                    followup = "Follow up continues for 3 years";
-                    justification = "High risk due to onset age between 5 and 8 years.";
-                } else if (ageAtOnset >= 9 && ageAtOnset < 16) {
-                    followup = "Follow up continues for 1 year";
-                    justification = "High risk due to onset age at or above 9 years.";
-                }
-            } else if (group2) {
-                risk_level = "High Risk";
-                recommendation = "Every 3 - 4 Months";
-                if (data.anaPositive) {
-                    if (ageAtOnset < 6) {
-                        followup = "Follow up continues for 5 years";
-                        justification = "High risk due to onset age <6 years with positive ANA.";
-                    } else if (ageAtOnset >= 6 && ageAtOnset <= 9) {
-                        followup = "Follow up continues for 2 years";
-                        justification = "High risk due to onset age between 6 and 9 years with positive ANA.";
-                    } else if (ageAtOnset > 9) {
-                        followup = "Follow up continues for 1 year";
-                        justification = "High risk due to onset age >9 with positive ANA.";
-                    }
-                } else { // ANA negative
-                    if (ageAtOnset < 7) {
-                        followup = "Follow up continues for 5 years";
-                        justification = "High risk due to early onset age with negative ANA.";
-                    } else if (ageAtOnset >= 7) {
-                        followup = "Follow up continues for 1 year";
-                        justification = "High risk due to onset age at or after 7 years with negative ANA.";
-                    }
-                }
-            } else if (group3) {
-                if (ageAtOnset < 7) {
-                    risk_level = "High Risk";
-                    recommendation = "Every 3 - 4 Months";
-                    followup = "Follow up continues for 5 years";
-                    justification = "High risk due to onset age <7 years.";
-                } else if (ageAtOnset >= 7 && ageAtOnset < 16) {
-                    risk_level = "High Risk";
-                    recommendation = "Every 3 - 4 Months";
-                    followup = "Follow up continues for 1 year";
-                    justification = "High risk due to onset age at or above 7 years.";
-                }
-            }
-
-            // Special recommendation prefix
-            if (recommendation !== "Screen at Diagnosis" && recommendation !== "No screening required" && recommendation !== "None") {
-                // Lowercase the first letter of the subsequent recommendation to fit the sentence structure
-                const lowerCaseRec = recommendation.charAt(0).toLowerCase() + recommendation.slice(1);
-                recommendation = `Screen for every 2 months, for the first 6 months. Then screen ${lowerCaseRec}`;
+            // Output formatting logic based on the C code implementation
+            if (recommendation !== "No screening required" && recommendation !== "None") {
+                recommendation = `Screen for every 2 months, for the first 6 months. Then screen ${recommendation}`;
             }
 
             return { riskLevel: risk_level, recommendation, followup, justification };
