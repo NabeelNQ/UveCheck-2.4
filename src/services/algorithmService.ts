@@ -1,8 +1,7 @@
-
 import { Algorithm, AlgorithmKey, FormData, CalculationResult, DateDifference } from '../types';
 import { parseDate, yearsDaysDiff } from './dateService';
 
-// Helper to convert DateDifference to a precise float for comparison
+// Helper to convert DateDifference to a precise float for comparison where appropriate
 const toPreciseYears = (diff: DateDifference): number => {
     return diff.years + (diff.days / 365.25);
 };
@@ -37,7 +36,6 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             const group2 = data.subDiagnosis === 'RF Negative Polyarthritis';
             const group3 = ['Systemic Onset Arthritis', 'RF Positive Polyarthritis'].includes(data.subDiagnosis);
             
-            // Logic for Very Low Risk Override
             const isVLRGroup1 = group1 && (
                 (ageAtOnset < 3 && timeu > 8) ||
                 (ageAtOnset >= 3 && ageAtOnset < 5 && timeu > 6) ||
@@ -72,7 +70,6 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
                 followup = "None";
                 justification = "Very low risk due to long time since diagnosis with negative ANA.";
             } else {
-                // Logic for Group 1: Persistent Oligo/Extended Oligo/Psoriatic/ERA
                 if (group1) {
                     risk_level = "High Risk";
                     recommendation = "every 3 - 4 Months";
@@ -90,7 +87,6 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
                         justification = "High risk due to onset age at or above 9 years.";
                     }
                 }
-                // Logic for Group 2: RF- Polyarthritis
                 else if (group2) {
                     risk_level = "High Risk";
                     recommendation = "every 3 - 4 Months";
@@ -115,14 +111,12 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
                         }
                     }
                 }
-                // Logic for Group 3: Systemic Onset Arthritis or RF Positive Polyarthritis
                 else if (group3) {
                     risk_level = "Very Low Risk";
                     recommendation = "at Diagnosis";
                     followup = "No Follow up required";
                     justification = "Very low risk: RF positive or systemic onset arthritis.";
                 }
-                // Logic for Invalid sub-diagnosis (Group 4)
                 else {
                     risk_level = "No Risk";
                     recommendation = "None";
@@ -131,7 +125,6 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
                 }
             }
 
-            // Output formatting logic based on the C code implementation
             if (recommendation !== "No screening required" && recommendation !== "None") {
                 recommendation = `Screen for every 2 months, for the first 6 months. Then screen ${recommendation}`;
             }
@@ -234,38 +227,45 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             'Systemic onset Arthritis', 'Undifferentiated Arthritis'
         ],
         calculate: (data: FormData): CalculationResult => {
-             const dob = parseDate(data.dateOfBirth);
+            const dob = parseDate(data.dateOfBirth);
             const dod = parseDate(data.dateOfDiagnosis);
             if (!dob || !dod) return { riskLevel: 'Error', recommendation: 'Invalid date format', followup: '', justification: '' };
 
             const today = new Date();
-            const timeSinceDiagnosis = toPreciseYears(yearsDaysDiff(dod, today));
-            const ageAtOnset = toPreciseYears(yearsDaysDiff(dob, dod));
+            const timeSinceDiag = yearsDaysDiff(dod, today);
+            const onset = yearsDaysDiff(dob, dod);
 
             let risk_level = "No Risk";
             let recommendation = "No screening required";
             let justification = "Standard risk calculation applied.";
 
+            // Strict boundary checks based exactly on C implementations
+            const onset_lt_7 = (onset.years < 7);
+            const timeu_leq_4 = (timeSinceDiag.years < 4) || (timeSinceDiag.years === 4 && timeSinceDiag.days === 0);
+            const timeu_gt_4 = (timeSinceDiag.years > 4) || (timeSinceDiag.years === 4 && timeSinceDiag.days > 0);
+            const timeu_lt_7 = (timeSinceDiag.years < 7) || (timeSinceDiag.years === 7 && timeSinceDiag.days === 0);
+            const timeu_gt_7 = (timeSinceDiag.years > 7) || (timeSinceDiag.years === 7 && timeSinceDiag.days > 0);
+
             const subdGroup1 = ['Extended Oligoarthritis', 'Persistent Oligoarthritis', 'RF Negative Polyarthritis', 'Psoriatic Arthritis', 'Undifferentiated Arthritis'].includes(data.subDiagnosis);
             const subdGroup2 = ['Enthesitis related Arthritis', 'RF Positive Arthritis', 'Systemic onset Arthritis'].includes(data.subDiagnosis);
 
             if (subdGroup1) {
-                if (ageAtOnset < 7) {
-                    if (data.anaPositive && timeSinceDiagnosis <= 4) {
+                if (onset_lt_7) {
+                    if (data.anaPositive && timeu_leq_4) {
                         recommendation = "Every 3 Months"; risk_level = "High Risk"; justification = "High risk due to positive ANA, age at onset < 7, time since diagnosis ≤ 4 years.";
-                    } else if (data.anaPositive && timeSinceDiagnosis > 4 && timeSinceDiagnosis < 7) {
+                    } else if (data.anaPositive && timeu_gt_4 && timeu_lt_7) {
                         recommendation = "Every 6 Months"; risk_level = "Medium Risk"; justification = "Medium risk due to positive ANA, age at onset < 7, time since diagnosis between 4 and 7 years.";
-                    } else if (data.anaPositive && timeSinceDiagnosis >= 7) {
+                    } else if (data.anaPositive && timeu_gt_7) {
                         recommendation = "Every 12 Months"; risk_level = "Low Risk"; justification = "Low risk due to positive ANA, age at onset < 7, time since diagnosis > 7 years.";
-                    } else if (!data.anaPositive && timeSinceDiagnosis <= 4) {
+                    } else if (!data.anaPositive && timeu_leq_4) {
                         recommendation = "Every 6 Months"; risk_level = "Medium Risk"; justification = "Medium risk due to negative ANA, age at onset < 7, time since diagnosis ≤ 4 years.";
-                    } else if (!data.anaPositive && timeSinceDiagnosis > 4) {
+                    } else if (!data.anaPositive && timeu_gt_4) {
                         recommendation = "Every 12 Months"; risk_level = "Low Risk"; justification = "Low risk due to negative ANA, age at onset < 7, time since diagnosis > 4 years.";
                     }
-                } else { // onset >= 7
-                    if (data.anaPositive && timeSinceDiagnosis <= 4) {
+                } else { // onset age >= 7
+                    if (data.anaPositive && timeu_leq_4) {
                         recommendation = "Every 6 Months"; risk_level = "Medium Risk"; justification = "Medium risk due to positive ANA, age at onset ≥ 7, time since diagnosis ≤ 4 years.";
-                    } else if (data.anaPositive && timeSinceDiagnosis > 4) {
+                    } else if (data.anaPositive && timeu_gt_4) {
                         recommendation = "Every 12 Months"; risk_level = "Low Risk"; justification = "Low risk due to positive ANA, age at onset ≥ 7, time since diagnosis > 4 years.";
                     } else {
                         recommendation = "Every 12 Months"; risk_level = "Low Risk"; justification = "Low risk due to negative ANA and age at onset > 7.";
@@ -410,32 +410,36 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             if (!dob || !dod) return { riskLevel: 'Error', recommendation: 'Invalid date format', followup: '', justification: '' };
 
             const today = new Date();
-            const currentAge = toPreciseYears(yearsDaysDiff(dob, today));
-            const timeSinceDiagnosis = toPreciseYears(yearsDaysDiff(dod, today));
-            const ageAtOnset = toPreciseYears(yearsDaysDiff(dob, dod));
+            const age = yearsDaysDiff(dob, today);
+            const timeu = yearsDaysDiff(dod, today);
+            const onset = yearsDaysDiff(dob, dod);
 
             const group1 = ['Persistent Oligoarthritis', 'Extended Oligoarthritis', 'Psoriatic Arthritis', 'RF Negative Polyarthritis'].includes(data.subDiagnosis);
             const group2 = data.subDiagnosis === 'HLAB27+ Arthritis';
+            const group3 = ['RF Positive Polyarthritis', 'Systemic Onset Arthritis'].includes(data.subDiagnosis);
             
-            if (data.subDiagnosis === 'RF Positive Polyarthritis') {
+            if (group3) {
                 return { 
                     riskLevel: 'Medium Risk',
                     recommendation: 'Every 6 months',
                     followup: 'Until 18 years of age',
-                    justification: 'Medium risk due to diagnosis of RF Positive Polyarthritis.' 
-                };
-            }
-            if (data.subDiagnosis === 'Systemic Onset Arthritis') {
-                 return { 
-                    riskLevel: 'Medium Risk', 
-                    recommendation: 'Screen at diagnosis, then every 6 months until 18 years of age', 
-                    followup: '', 
-                    justification: `Medium risk due to diagnosis of Systemic Onset Arthritis.` 
+                    justification: 'Medium risk due to diagnosis of RF Positive Polyarthritis or Systemic Onset Arthritis.' 
                 };
             }
 
-            if (currentAge >= 18 && !data.anaPositive) {
-                return { riskLevel: 'Very Low Risk', recommendation: 'No screening required', followup: 'None', justification: 'Very low risk due to age > 18 years and negative ANA.' };
+            const onset_leq_6 = (onset.years < 6) || (onset.years === 6 && onset.days === 0);
+            const onset_gt_6 = (onset.years > 6) || (onset.years === 6 && onset.days > 0);
+            const timeu_leq_4 = (timeu.years < 4) || (timeu.years === 4 && timeu.days === 0);
+            const timeu_gt_4 = (timeu.years > 4) || (timeu.years === 4 && timeu.days > 0);
+            const isAdult = (age.years > 18) || (age.years === 18 && age.days > 0);
+
+            if (isAdult && !data.anaPositive) {
+                return { 
+                    riskLevel: 'Very Low Risk', 
+                    recommendation: 'No screening required', 
+                    followup: 'None', 
+                    justification: 'Very low risk due to age > 18 years and negative ANA.' 
+                };
             }
 
             let risk_level = "No Risk";
@@ -443,27 +447,94 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             let followup = "";
             let justification = "";
 
-            const inFirst6Months = timeSinceDiagnosis < 0.5;
-
-            if (group1 || group2) {
-                if (ageAtOnset <= 6 || data.anaPositive) {
-                    if (inFirst6Months) {
-                        risk_level = "High Risk"; recommendation = "Every 2 months"; followup = "Continue into adulthood"; justification = "High risk due to onset age < 6 or positive ANA, and time since diagnosis < 0.5 years.";
-                    } else if (timeSinceDiagnosis <= 4) {
-                        risk_level = "High Risk"; recommendation = "Every 3 months"; followup = "Continue into adulthood"; justification = "High risk due to onset age < 6 or positive ANA, and time since diagnosis ≤ 4 years.";
-                    } else if (timeSinceDiagnosis > 4) {
-                        risk_level = "Medium Risk"; recommendation = "Every 6 months"; followup = "Continue into adulthood"; justification = "Medium risk due to onset age < 6 or positive ANA, time since diagnosis >4 years.";
+            if (group1) {
+                if (onset_leq_6 || data.anaPositive) {
+                    if (timeu.years === 0 && timeu.days < 183) { 
+                        recommendation = "Every 2 months";
+                        followup = "Continue into adulthood";
+                        risk_level = "High Risk";
+                        justification = "High risk due to onset age < 6 or positive ANA, and time since diagnosis < 0.5 years.";
+                    } else if (timeu_leq_4) {
+                        recommendation = "Every 3 months";
+                        followup = "Continue into adulthood";
+                        risk_level = "High Risk";
+                        justification = "High risk due to onset age < 6 or positive ANA, and time since diagnosis ≤ 4 years.";
+                    } else if (timeu_gt_4) {
+                        recommendation = "Every 6 months";
+                        followup = "Continue into adulthood";
+                        risk_level = "Medium Risk";
+                        justification = "Medium risk due to onset age < 6 or positive ANA, time since diagnosis >4 years.";
                     }
-                    if (currentAge >= 18 && data.anaPositive) {
-                         risk_level = "Low to Medium Risk"; recommendation = "Every 6-12 months"; followup = "Continue into adulthood"; justification = "Low to medium risk due to age > 18 and positive ANA.";
+                    if (isAdult && data.anaPositive) {
+                        recommendation = "Every 6-12 months";
+                        followup = "Continue into adulthood";
+                        risk_level = "Low to Medium Risk";
+                        justification = "Low to medium risk due to age > 18 and positive ANA.";
                     }
-                } else { // onset > 6 and ANA negative
-                    if (timeSinceDiagnosis <= 4) {
-                        risk_level = "High Risk"; recommendation = "Every 3 months"; followup = "Until 18 years of age"; justification = "High risk due to negative ANA, onset age > 6, and time since diagnosis ≤ 4 years.";
+                } else if (onset_gt_6 && !data.anaPositive) {
+                    if (timeu_leq_4) {
+                        recommendation = "Every 3 months";
+                        followup = "Until 18 years of age";
+                        risk_level = "High Risk";
+                        justification = "High risk due to negative ANA, onset age > 6, and time since diagnosis ≤ 4 years.";
                     } else {
-                        risk_level = "Medium Risk"; recommendation = "Every 6 months"; followup = "Until 18 years of age"; justification = "Medium risk due to negative ANA, onset age > 6, and time since diagnosis > 4 years.";
+                        recommendation = "Every 6 months";
+                        followup = "Until 18 years of age";
+                        risk_level = "Medium Risk";
+                        justification = "Medium risk due to negative ANA, onset age > 6, and time since diagnosis > 4 years.";
                     }
                 }
+            } else if (group2) {
+                if (onset_leq_6 || data.anaPositive) {
+                    if (timeu.years === 0 && timeu.days < 183) {
+                        recommendation = "Every 2 months";
+                        followup = "Continue into adulthood";
+                        risk_level = "High Risk";
+                        justification = "High risk due to onset age < 6 or positive ANA, and time since diagnosis < 0.5 years.";
+                    } else if (timeu_leq_4) {
+                        recommendation = "Every 3 months";
+                        followup = "Continue into adulthood";
+                        risk_level = "High Risk";
+                        justification = "High risk due to onset age < 6 or positive ANA, and time since diagnosis ≤ 4 years.";
+                    } else if (timeu_gt_4) {
+                        recommendation = "Every 6 months";
+                        followup = "Continue into adulthood";
+                        risk_level = "Medium Risk";
+                        justification = "Medium risk due to onset age < 6 or positive ANA, time since diagnosis >4 years.";
+                    }
+                    if (isAdult && data.anaPositive) {
+                        recommendation = "Every 6-12 months";
+                        followup = "Continue into adulthood";
+                        risk_level = "Low to Medium Risk";
+                        justification = "Low to medium risk due to age > 18 and positive ANA.";
+                    }
+                } else { 
+                    if (onset.years >= 6 && onset.years <= 11) {
+                        if (timeu_leq_4) {
+                            recommendation = "Every 3 months";
+                            followup = "Until 18 years of age";
+                            risk_level = "High Risk";
+                            justification = "High risk due to negative ANA, onset age between 6 and 11, and time since diagnosis ≤ 4 years.";
+                        } else {
+                            recommendation = "Every 6 months";
+                            followup = "Until 18 years of age";
+                            risk_level = "Medium Risk";
+                            justification = "Medium risk due to negative ANA, onset age between 6 and 11, and time since diagnosis > 4 years.";
+                        }
+                    } else if (onset.years >= 11 && onset.years < 18) {
+                        recommendation = "Every 6 months";
+                        followup = "Until 18 years of age";
+                        risk_level = "Medium Risk";
+                        justification = "Medium risk due to negative ANA and onset age between 11 and 18.";
+                    }
+                }
+            } else {
+                return { 
+                    riskLevel: "No Risk", 
+                    recommendation: "None", 
+                    followup: "None", 
+                    justification: "No guideline available for this diagnosis." 
+                };
             }
 
             return { riskLevel: risk_level, recommendation, followup, justification };
@@ -483,17 +554,27 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             if (!dob || !dod) return { riskLevel: 'Error', recommendation: 'Invalid date format', followup: '', justification: '' };
 
             const today = new Date();
-            const currentAge = toPreciseYears(yearsDaysDiff(dob, today));
-            const timeSinceDiagnosis = toPreciseYears(yearsDaysDiff(dod, today));
-            const ageAtOnset = toPreciseYears(yearsDaysDiff(dob, dod));
+            const age = yearsDaysDiff(dob, today);
+            const timeu = yearsDaysDiff(dod, today);
+            const onset = yearsDaysDiff(dob, dod);
             
-            if (currentAge >= 21) {
-                return { riskLevel: "Very Low Risk", recommendation: "No screening required", followup: "None", justification: "Very low risk due to age > 21 years." };
+            if (age.years > 21 || (age.years === 21 && age.days > 0)) {
+                return { 
+                    riskLevel: "Very Low Risk", 
+                    recommendation: "No screening required", 
+                    followup: "None", 
+                    justification: "Very low risk due to age > 21 years." 
+                };
             }
 
             const isSystemic = data.subDiagnosis === 'Systemic onset Arthritis';
             if (isSystemic) {
-                return { riskLevel: 'Low Risk', recommendation: 'Every 12 Months', followup: 'Until 21 years', justification: 'Low risk due to diagnosis of Systemic onset Arthritis.' };
+                return { 
+                    riskLevel: 'Low Risk', 
+                    recommendation: 'Every 12 Months', 
+                    followup: 'Until 21 years', 
+                    justification: 'Low risk due to diagnosis of Systemic onset Arthritis.' 
+                };
             }
             
             let risk_level = "No Risk";
@@ -501,27 +582,35 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             let followup = "Until 21 years";
             let justification = "";
 
-            if (ageAtOnset <= 6) {
-                if (data.anaPositive && timeSinceDiagnosis <= 4) {
+            const onset_leq_6 = (onset.years < 6) || (onset.years === 6 && onset.days === 0);
+            const onset_gt_6 = (onset.years > 6) || (onset.years === 6 && onset.days > 0);
+            const timeu_leq_4 = (timeu.years < 4) || (timeu.years === 4 && timeu.days === 0);
+            const timeu_gt_4 = (timeu.years > 4) || (timeu.years === 4 && timeu.days > 0);
+            const timeu_between_4_7 = (timeu_gt_4) && ((timeu.years < 7) || (timeu.years === 7 && timeu.days === 0));
+            const timeu_gt_7 = (timeu.years > 7) || (timeu.years === 7 && timeu.days > 0);
+
+            if (onset_leq_6) {
+                if (data.anaPositive && timeu_leq_4) {
                     risk_level = "High Risk"; recommendation = "Every 3 Months"; justification = "High risk due to positive ANA, onset age ≤ 6, and time since diagnosis ≤ 4 years.";
-                } else if (data.anaPositive && timeSinceDiagnosis > 4 && timeSinceDiagnosis <= 7) {
+                } else if (data.anaPositive && timeu_between_4_7) {
                     risk_level = "Medium Risk"; recommendation = "Every 6 Months"; justification = "Medium risk due to positive ANA, onset age ≤ 6, and time since diagnosis between 4 and 7 years.";
-                } else if (data.anaPositive && timeSinceDiagnosis > 7) {
+                } else if (data.anaPositive && timeu_gt_7) {
                     risk_level = "Low Risk"; recommendation = "Every 12 Months"; justification = "Low risk due to positive ANA, onset age ≤ 6, and time since diagnosis > 7 years.";
-                } else if (!data.anaPositive && timeSinceDiagnosis <= 4) {
+                } else if (!data.anaPositive && timeu_leq_4) {
                     risk_level = "Medium Risk"; recommendation = "Every 6 Months"; justification = "Medium risk due to negative ANA, onset age ≤ 6, and time since diagnosis ≤ 4 years.";
-                } else if (!data.anaPositive && timeSinceDiagnosis > 4) {
+                } else if (!data.anaPositive && timeu_gt_4) {
                     risk_level = "Low Risk"; recommendation = "Every 12 Months"; justification = "Low risk due to negative ANA, onset age ≤ 6, and time since diagnosis > 4 years.";
                 }
-            } else { // onset > 6
-                if (data.anaPositive && timeSinceDiagnosis <= 4) {
+            } else if (onset_gt_6) {
+                if (data.anaPositive && timeu_leq_4) {
                     risk_level = "Medium Risk"; recommendation = "Every 6 Months"; justification = "Medium risk due to positive ANA, onset age > 6, and time since diagnosis ≤ 4 years.";
-                } else if (data.anaPositive && timeSinceDiagnosis > 4) {
+                } else if (data.anaPositive && timeu_gt_4) {
                     risk_level = "Low Risk"; recommendation = "Every 12 Months"; justification = "Low risk due to positive ANA, onset age > 6, and time since diagnosis > 4 years.";
-                } else if (!data.anaPositive && timeSinceDiagnosis > 4) {
+                } else if (!data.anaPositive) {
                     risk_level = "Low Risk"; recommendation = "Every 12 Months"; justification = "Low risk due to negative ANA, onset age > 6, and time since diagnosis > 4 years.";
                 }
             }
+
              return { riskLevel: risk_level, recommendation, followup, justification };
         }
     },
@@ -558,7 +647,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
                     } else {
                         risk_level = "Low Risk"; recommendation = "Every 12 Months"; justification = "Low risk due to JIA diagnosed before 7 years of age and over 7 years ago.";
                     }
-                } else { // onset >= 7
+                } else { 
                     if (timeSinceDiagnosis <= 1) {
                         risk_level = "High Risk"; recommendation = "Every 3–4 Months"; justification = "High risk due to JIA diagnosed at or after 7 years of age and within the last year.";
                     } else if (timeSinceDiagnosis <= 4) {
