@@ -58,17 +58,17 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
                 risk_level = "Very Low Risk";
                 recommendation = "No screening required";
                 followup = "None";
-                justification = "Very low risk due to long time since diagnosis.";
+                justification = "Very low risk due to time since diagnosis.";
             } else if (isVLRGroup2ANA) {
                 risk_level = "Very Low Risk";
                 recommendation = "No screening required";
                 followup = "None";
-                justification = "Very low risk due to long time since diagnosis with positive ANA.";
+                justification = "Very low risk due to time since diagnosis with positive ANA.";
             } else if (isVLRGroup2NoANA) {
                 risk_level = "Very Low Risk";
                 recommendation = "No screening required";
                 followup = "None";
-                justification = "Very low risk due to long time since diagnosis with negative ANA.";
+                justification = "Very low risk due to time since diagnosis with negative ANA.";
             } else {
                 if (group1) {
                     risk_level = "High Risk";
@@ -84,7 +84,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
                         justification = "High risk due to onset age between 5 and 8 years.";
                     } else if (ageAtOnset >= 9) {
                         followup = "Follow up continues for 1 year";
-                        justification = "High risk due to onset age at or above 9 years.";
+                        justification = "<1 year from the onset of JIA";
                     }
                 }
                 else if (group2) {
@@ -99,7 +99,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
                             justification = "High risk due to onset age between 6 and 9 years with positive ANA.";
                         } else if (ageAtOnset > 9) {
                             followup = "Follow up continues for 1 year";
-                            justification = "High risk due to onset age at or above 9 years with positive ANA.";
+                            justification = "<1 year from the onset of JIA";
                         }
                     } else {
                         if (ageAtOnset < 7) {
@@ -107,13 +107,13 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
                             justification = "High risk due to onset age of less than 7 years with negative ANA.";
                         } else if (ageAtOnset >= 7) {
                             followup = "Follow up continues for 1 year";
-                            justification = "High risk due to onset age at or above 7 years with negative ANA.";
+                            justification = "<1 year from the onset of JIA";
                         }
                     }
                 }
                 else if (group3) {
                     risk_level = "Very Low Risk";
-                    recommendation = "at Diagnosis";
+                    recommendation = "Screen at Diagnosis";
                     followup = "No Follow up required";
                     justification = "Very low risk: RF positive or systemic onset arthritis.";
                 }
@@ -125,7 +125,9 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
                 }
             }
 
-            if (recommendation !== "No screening required" && recommendation !== "None") {
+            // Prepend the specific screening rule only if regular follow-up screening is actually required.
+            // "Screen at Diagnosis" and "No screening required" are terminal recommendations.
+            if (recommendation !== "No screening required" && recommendation !== "None" && recommendation !== "Screen at Diagnosis") {
                 recommendation = `Screen for every 2 months, for the first 6 months. Then screen ${recommendation}`;
             }
 
@@ -239,7 +241,6 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             let recommendation = "No screening required";
             let justification = "Standard risk calculation applied.";
 
-            // Strict boundary checks based exactly on C implementations
             const onset_lt_7 = (onset.years < 7);
             const timeu_leq_4 = (timeSinceDiag.years < 4) || (timeSinceDiag.years === 4 && timeSinceDiag.days === 0);
             const timeu_gt_4 = (timeSinceDiag.years > 4) || (timeSinceDiag.years === 4 && timeSinceDiag.days > 0);
@@ -423,7 +424,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
                     riskLevel: 'Medium Risk',
                     recommendation: 'Every 6 months',
                     followup: 'Until 18 years of age',
-                    justification: 'Medium risk due to diagnosis of RF Positive Polyarthritis or Systemic Onset Arthritis.' 
+                    justification: 'Medium risk due to diagnosis of RF Positive Polyarthritis or System Onset Arthritis.' 
                 };
             }
 
@@ -555,7 +556,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
 
             const today = new Date();
             const age = yearsDaysDiff(dob, today);
-            const timeu = yearsDaysDiff(dod, today);
+            const timeSinceDiagnosis = yearsDaysDiff(dod, today);
             const onset = yearsDaysDiff(dob, dod);
             
             if (age.years > 21 || (age.years === 21 && age.days > 0)) {
@@ -584,10 +585,10 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
 
             const onset_leq_6 = (onset.years < 6) || (onset.years === 6 && onset.days === 0);
             const onset_gt_6 = (onset.years > 6) || (onset.years === 6 && onset.days > 0);
-            const timeu_leq_4 = (timeu.years < 4) || (timeu.years === 4 && timeu.days === 0);
-            const timeu_gt_4 = (timeu.years > 4) || (timeu.years === 4 && timeu.days > 0);
-            const timeu_between_4_7 = (timeu_gt_4) && ((timeu.years < 7) || (timeu.years === 7 && timeu.days === 0));
-            const timeu_gt_7 = (timeu.years > 7) || (timeu.years === 7 && timeu.days > 0);
+            const timeu_leq_4 = (timeSinceDiagnosis.years < 4) || (timeSinceDiagnosis.years === 4 && timeSinceDiagnosis.days === 0);
+            const timeu_gt_4 = (timeSinceDiagnosis.years > 4) || (timeSinceDiagnosis.years === 4 && timeSinceDiagnosis.days > 0);
+            const timeu_between_4_7 = (timeu_gt_4) && ((timeSinceDiagnosis.years < 7) || (timeSinceDiagnosis.years === 7 && timeSinceDiagnosis.days === 0));
+            const timeu_gt_7 = (timeSinceDiagnosis.years > 7) || (timeSinceDiagnosis.years === 7 && timeSinceDiagnosis.days > 0);
 
             if (onset_leq_6) {
                 if (data.anaPositive && timeu_leq_4) {
