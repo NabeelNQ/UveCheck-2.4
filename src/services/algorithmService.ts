@@ -1,9 +1,118 @@
-import { Algorithm, AlgorithmKey, FormData, CalculationResult, DateDifference } from '../types';
-import { parseDate, yearsDaysDiff } from './dateService';
+import { Algorithm, AlgorithmKey, FormData, CalculationResult, DateDifference, FollowUpEvent } from '../types';
+import { parseDate, yearsDaysDiff, formatDate } from './dateService';
 
 // Helper to convert DateDifference to a precise float for comparison where appropriate
 const toPreciseYears = (diff: DateDifference): number => {
     return diff.years + (diff.days / 365.25);
+};
+
+const generateSchedule = (data: FormData, algorithm: Algorithm, initialResult: CalculationResult): FollowUpEvent[] | undefined => {
+    const recommendation = initialResult.recommendation;
+    const followup = initialResult.followup;
+    
+    if (recommendation === "No screening required" || recommendation === "None" || recommendation === "Screen at Diagnosis") {
+        return undefined;
+    }
+
+    const schedule: FollowUpEvent[] = [];
+    const today = new Date();
+    const dob = parseDate(data.dateOfBirth);
+    const dod = parseDate(data.dateOfDiagnosis);
+    if (!dob || !dod) return undefined;
+
+    let currentDate = new Date(dod);
+    
+    // Determine end date
+    let endDate: Date | null = null;
+    const followLower = followup.toLowerCase();
+    
+    const yearsMatch = followLower.match(/(\d+)\s*year/);
+    if (yearsMatch) {
+        const numYears = parseInt(yearsMatch[1], 10);
+        if (followLower.includes('until') || followLower.includes('max') || followLower.includes('age')) {
+            endDate = new Date(dob);
+            endDate.setFullYear(endDate.getFullYear() + numYears);
+        } else {
+            endDate = new Date(dod);
+            endDate.setFullYear(endDate.getFullYear() + numYears);
+        }
+    } else if (followLower.includes('adulthood')) {
+        endDate = new Date(dob);
+        endDate.setFullYear(endDate.getFullYear() + 25);
+    }
+
+    let safetyCounter = 0;
+    
+    while (schedule.length < 10 && safetyCounter < 300) {
+        safetyCounter++;
+        
+        // Re-evaluate algorithm at current date to get the correct interval
+        const currentResult = algorithm.calculate(data, currentDate);
+        const currentRec = currentResult.recommendation;
+        
+        if (currentRec === "No screening required" || currentRec === "None" || currentRec === "Screen at Diagnosis") {
+            break;
+        }
+
+        // Determine interval from current recommendation
+        let intervalMonths = 12;
+        const recLower = currentRec.toLowerCase();
+        
+        if (recLower.includes('every 2 month')) intervalMonths = 2;
+        else if (recLower.includes('every 3 month')) intervalMonths = 3;
+        else if (recLower.includes('every 3–4 month')) intervalMonths = 4;
+        else if (recLower.includes('every 3 - 4 month')) intervalMonths = 4;
+        else if (recLower.includes('every 4 month')) intervalMonths = 4;
+        else if (recLower.includes('every 6 month')) intervalMonths = 6;
+        else if (recLower.includes('every 6-12 month')) intervalMonths = 12;
+        else if (recLower.includes('every 12 month')) intervalMonths = 12;
+
+        currentDate = new Date(currentDate);
+        currentDate.setMonth(currentDate.getMonth() + intervalMonths);
+
+        if (currentDate > today) {
+            // Format description: "Every 3 - 4 Months" -> "3 - 4 - Monthly Screening"
+            let currentDesc = currentRec.replace(/^every /i, '').trim();
+            
+            // Handle UK special case in description if it's still there
+            if (currentDesc.includes('Then screen ')) {
+                const parts = currentDesc.split('Then screen ');
+                const monthsSinceDiag = (currentDate.getTime() - dod.getTime()) / (1000 * 60 * 60 * 24 * 30.44);
+                if (monthsSinceDiag <= 6) {
+                    currentDesc = "2 Monthly Screening";
+                } else {
+                    currentDesc = parts[1].replace(/^every /i, '').trim();
+                }
+            }
+
+            if (currentDesc.toLowerCase().endsWith('months')) {
+                currentDesc = currentDesc.substring(0, currentDesc.length - 6).trim();
+            } else if (currentDesc.toLowerCase().endsWith('month')) {
+                currentDesc = currentDesc.substring(0, currentDesc.length - 5).trim();
+            }
+            
+            if (!currentDesc.toLowerCase().includes('monthly')) {
+                currentDesc = `${currentDesc} - Monthly Screening`;
+            }
+
+            schedule.push({
+                date: formatDate(currentDate),
+                description: currentDesc
+            });
+        }
+
+        if (endDate && currentDate >= endDate) break;
+    }
+
+    return schedule.length > 0 ? schedule : undefined;
+};
+
+const createResult = (data: FormData, algorithm: Algorithm, riskLevel: string, recommendation: string, followup: string, justification: string, evaluationDate?: Date): CalculationResult => {
+    const result: CalculationResult = { riskLevel, recommendation, followup, justification };
+    if (!evaluationDate) {
+        result.followupSchedule = generateSchedule(data, algorithm, result);
+    }
+    return result;
 };
 
 const algorithms: Record<AlgorithmKey, Algorithm> = {
@@ -16,12 +125,13 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             'Enthesitis-related Arthritis', 'RF Negative Polyarthritis', 'RF Positive Polyarthritis',
             'Systemic Onset Arthritis'
         ],
-        calculate: (data: FormData): CalculationResult => {
+        calculate: (data: FormData, evaluationDate?: Date): CalculationResult => {
             const dob = parseDate(data.dateOfBirth);
             const dod = parseDate(data.dateOfDiagnosis);
             if (!dob || !dod) return { riskLevel: 'Error', recommendation: 'Invalid date format', followup: '', justification: '' };
 
-            const sinceDiagDiff = yearsDaysDiff(dod, new Date());
+            const today = evaluationDate || new Date();
+            const sinceDiagDiff = yearsDaysDiff(dod, today);
             const timeu = toPreciseYears(sinceDiagDiff);
 
             const onsetDiff = yearsDaysDiff(dob, dod);
@@ -128,10 +238,13 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             // Prepend the specific screening rule only if regular follow-up screening is actually required.
             // "Screen at Diagnosis" and "No screening required" are terminal recommendations.
             if (recommendation !== "No screening required" && recommendation !== "None" && recommendation !== "Screen at Diagnosis") {
-                recommendation = `Screen for every 2 months, for the first 6 months. Then screen ${recommendation}`;
+                const monthsSinceDiag = (today.getTime() - dod.getTime()) / (1000 * 60 * 60 * 24 * 30.44);
+                if (monthsSinceDiag < 6) {
+                    recommendation = `Screen for every 2 months, for the first 6 months. Then screen ${recommendation}`;
+                }
             }
 
-            return { riskLevel: risk_level, recommendation, followup, justification };
+            return createResult(data, algorithms.uk, risk_level, recommendation, followup, justification, evaluationDate);
         }
     },
     nordic: {
@@ -144,12 +257,12 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             'Undifferentiated Arthritis'
         ],
         biologicalTreatmentOptions: ['Adalimumab', 'Certolizumab', 'Golimumab', 'Infliximab', 'Etanercept', 'None / Other'],
-        calculate: (data: FormData): CalculationResult => {
+        calculate: (data: FormData, evaluationDate?: Date): CalculationResult => {
             const dob = parseDate(data.dateOfBirth);
             const dod = parseDate(data.dateOfDiagnosis);
             if (!dob || !dod) return { riskLevel: 'Error', recommendation: 'Invalid date format', followup: '', justification: '' };
             
-            const today = new Date();
+            const today = evaluationDate || new Date();
             const currentAge = toPreciseYears(yearsDaysDiff(dob, today));
             const timeSinceDiagnosis = toPreciseYears(yearsDaysDiff(dod, today));
             const ageAtOnset = toPreciseYears(yearsDaysDiff(dob, dod));
@@ -164,7 +277,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             const subdGroup3 = ['RF Positive Arthritis', 'Systemic Onset Arthritis'].includes(data.subDiagnosis);
 
             if (currentAge >= 16) {
-                return { riskLevel: 'Very Low Risk', recommendation: 'No screening required', followup: 'None', justification: 'Screening guidelines apply only until 16 years of age.' };
+                return createResult(data, algorithms.nordic, 'Very Low Risk', 'No screening required', 'None', 'Screening guidelines apply only until 16 years of age.', evaluationDate);
             }
 
             if (subdGroup1) {
@@ -217,7 +330,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
                 }
             }
 
-            return { riskLevel: risk_level, recommendation, followup, justification };
+            return createResult(data, algorithms.nordic, risk_level, recommendation, followup, justification, evaluationDate);
         }
     },
     us_pakistan: {
@@ -228,12 +341,12 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             'Psoriatic Arthritis', 'RF Positive Arthritis', 'Enthesitis related Arthritis', 
             'Systemic onset Arthritis', 'Undifferentiated Arthritis'
         ],
-        calculate: (data: FormData): CalculationResult => {
+        calculate: (data: FormData, evaluationDate?: Date): CalculationResult => {
             const dob = parseDate(data.dateOfBirth);
             const dod = parseDate(data.dateOfDiagnosis);
             if (!dob || !dod) return { riskLevel: 'Error', recommendation: 'Invalid date format', followup: '', justification: '' };
 
-            const today = new Date();
+            const today = evaluationDate || new Date();
             const timeSinceDiag = yearsDaysDiff(dod, today);
             const onset = yearsDaysDiff(dob, dod);
 
@@ -276,7 +389,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
                 recommendation = "Every 12 Months"; risk_level = "Low Risk"; justification = `Low risk due to diagnosis of ${data.subDiagnosis}.`;
             }
 
-            return { riskLevel: risk_level, recommendation, followup: "Follow-up continues into adulthood", justification };
+            return createResult(data, algorithms.us_pakistan, risk_level, recommendation, "Follow-up continues into adulthood", justification, evaluationDate);
         }
     },
     germany: {
@@ -287,12 +400,12 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             'Psoriatic Arthritis', 'RF Positive Arthritis', 'Enthesitis related Arthritis', 
             'Systemic onset Arthritis', 'Undifferentiated Arthritis'
         ],
-        calculate: (data: FormData): CalculationResult => {
+        calculate: (data: FormData, evaluationDate?: Date): CalculationResult => {
             const dob = parseDate(data.dateOfBirth);
             const dod = parseDate(data.dateOfDiagnosis);
             if (!dob || !dod) return { riskLevel: 'Error', recommendation: 'Invalid date format', followup: '', justification: '' };
 
-            const today = new Date();
+            const today = evaluationDate || new Date();
             const timeSinceDiagnosis = toPreciseYears(yearsDaysDiff(dod, today));
             const ageAtOnset = toPreciseYears(yearsDaysDiff(dob, dod));
 
@@ -302,7 +415,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             let justification = "Standard risk calculation applied.";
 
             if (timeSinceDiagnosis > 7) {
-                return { riskLevel: "Very Low Risk", followup: "No screening required", recommendation: "None", justification: "Very low risk due to time since diagnosis > 7 years." };
+                return createResult(data, algorithms.germany, "Very Low Risk", "None", "No screening required", "Very low risk due to time since diagnosis > 7 years.", evaluationDate);
             }
 
             const subdGroup1 = ['Persistent Oligoarthritis', 'Extended Oligoarthritis', 'RF Negative Polyarthritis', 'Psoriatic Arthritis', 'Undifferentiated Arthritis'].includes(data.subDiagnosis);
@@ -333,7 +446,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
                 recommendation = "Every 12 Months"; risk_level = "Low Risk"; followup = "Follow-up continues for 7 years from diagnosis"; justification = `Low risk due to diagnosis of ${data.subDiagnosis}.`;
             }
 
-            return { riskLevel: risk_level, recommendation, followup, justification };
+            return createResult(data, algorithms.germany, risk_level, recommendation, followup, justification, evaluationDate);
         }
     },
     spain_portugal: {
@@ -345,18 +458,18 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             'Psoriatic Arthritis', 'RF Positive Arthritis', 'Enthesitis related Arthritis', 
             'Systemic onset Arthritis', 'Undifferentiated Arthritis'
         ],
-        calculate: (data: FormData): CalculationResult => {
+        calculate: (data: FormData, evaluationDate?: Date): CalculationResult => {
              const dob = parseDate(data.dateOfBirth);
             const dod = parseDate(data.dateOfDiagnosis);
             if (!dob || !dod) return { riskLevel: 'Error', recommendation: 'Invalid date format', followup: '', justification: '' };
 
-            const today = new Date();
+            const today = evaluationDate || new Date();
             const currentAge = toPreciseYears(yearsDaysDiff(dob, today));
             const timeSinceDiagnosis = toPreciseYears(yearsDaysDiff(dod, today));
             const ageAtOnset = toPreciseYears(yearsDaysDiff(dob, dod));
 
             if (currentAge >= 16) {
-                return { riskLevel: 'Very Low Risk', followup: 'No screening required', recommendation: 'None', justification: 'Very low risk due to current age > 16 years.' };
+                return createResult(data, algorithms.spain_portugal, 'Very Low Risk', 'None', 'No screening required', 'Very low risk due to current age > 16 years.', evaluationDate);
             }
 
             let risk_level = "No Risk";
@@ -394,7 +507,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
                 recommendation = "Every 12 Months"; risk_level = "Low Risk"; followup = "Follow-up continues until 16 years of age"; justification = `Low risk due to diagnosis of ${data.subDiagnosis}.`;
             }
 
-            return { riskLevel: risk_level, recommendation, followup, justification };
+            return createResult(data, algorithms.spain_portugal, risk_level, recommendation, followup, justification, evaluationDate);
         }
     },
     czech_slovak: {
@@ -405,12 +518,12 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             'Persistent Oligoarthritis', 'Extended Oligoarthritis', 'RF Negative Polyarthritis', 
             'Psoriatic Arthritis', 'RF Positive Polyarthritis', 'Systemic Onset Arthritis', 'HLAB27+ Arthritis'
         ],
-        calculate: (data: FormData): CalculationResult => {
+        calculate: (data: FormData, evaluationDate?: Date): CalculationResult => {
             const dob = parseDate(data.dateOfBirth);
             const dod = parseDate(data.dateOfDiagnosis);
             if (!dob || !dod) return { riskLevel: 'Error', recommendation: 'Invalid date format', followup: '', justification: '' };
 
-            const today = new Date();
+            const today = evaluationDate || new Date();
             const age = yearsDaysDiff(dob, today);
             const timeu = yearsDaysDiff(dod, today);
             const onset = yearsDaysDiff(dob, dod);
@@ -420,12 +533,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             const group3 = ['RF Positive Polyarthritis', 'Systemic Onset Arthritis'].includes(data.subDiagnosis);
             
             if (group3) {
-                return { 
-                    riskLevel: 'Medium Risk',
-                    recommendation: 'Every 6 months',
-                    followup: 'Until 18 years of age',
-                    justification: 'Medium risk due to diagnosis of RF Positive Polyarthritis or System Onset Arthritis.' 
-                };
+                return createResult(data, algorithms.czech_slovak, 'Medium Risk', 'Every 6 months', 'Until 18 years of age', 'Medium risk due to diagnosis of RF Positive Polyarthritis or System Onset Arthritis.', evaluationDate);
             }
 
             const onset_leq_6 = (onset.years < 6) || (onset.years === 6 && onset.days === 0);
@@ -435,12 +543,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             const isAdult = (age.years > 18) || (age.years === 18 && age.days > 0);
 
             if (isAdult && !data.anaPositive) {
-                return { 
-                    riskLevel: 'Very Low Risk', 
-                    recommendation: 'No screening required', 
-                    followup: 'None', 
-                    justification: 'Very low risk due to age > 18 years and negative ANA.' 
-                };
+                return createResult(data, algorithms.czech_slovak, 'Very Low Risk', 'No screening required', 'None', 'Very low risk due to age > 18 years and negative ANA.', evaluationDate);
             }
 
             let risk_level = "No Risk";
@@ -530,15 +633,10 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
                     }
                 }
             } else {
-                return { 
-                    riskLevel: "No Risk", 
-                    recommendation: "None", 
-                    followup: "None", 
-                    justification: "No guideline available for this diagnosis." 
-                };
+                return createResult(data, algorithms.czech_slovak, "No Risk", "None", "None", "No guideline available for this diagnosis.", evaluationDate);
             }
 
-            return { riskLevel: risk_level, recommendation, followup, justification };
+            return createResult(data, algorithms.czech_slovak, risk_level, recommendation, followup, justification, evaluationDate);
         }
     },
     argentina: {
@@ -549,33 +647,23 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             'Persistent Oligoarthritis', 'Extended Oligoarthritis', 'RF Negative Polyarthritis', 
             'Psoriatic Arthritis', 'RF Positive Arthritis', 'Enthesitis related Arthritis', 'Systemic onset Arthritis'
         ],
-        calculate: (data: FormData): CalculationResult => {
+        calculate: (data: FormData, evaluationDate?: Date): CalculationResult => {
             const dob = parseDate(data.dateOfBirth);
             const dod = parseDate(data.dateOfDiagnosis);
             if (!dob || !dod) return { riskLevel: 'Error', recommendation: 'Invalid date format', followup: '', justification: '' };
 
-            const today = new Date();
+            const today = evaluationDate || new Date();
             const age = yearsDaysDiff(dob, today);
             const timeSinceDiagnosis = yearsDaysDiff(dod, today);
             const onset = yearsDaysDiff(dob, dod);
             
             if (age.years > 21 || (age.years === 21 && age.days > 0)) {
-                return { 
-                    riskLevel: "Very Low Risk", 
-                    recommendation: "No screening required", 
-                    followup: "None", 
-                    justification: "Very low risk due to age > 21 years." 
-                };
+                return createResult(data, algorithms.argentina, "Very Low Risk", "No screening required", "None", "Very low risk due to age > 21 years.", evaluationDate);
             }
 
             const isSystemic = data.subDiagnosis === 'Systemic onset Arthritis';
             if (isSystemic) {
-                return { 
-                    riskLevel: 'Low Risk', 
-                    recommendation: 'Every 12 Months', 
-                    followup: 'Until 21 years', 
-                    justification: 'Low risk due to diagnosis of Systemic onset Arthritis.' 
-                };
+                return createResult(data, algorithms.argentina, 'Low Risk', 'Every 12 Months', 'Until 21 years', 'Low risk due to diagnosis of Systemic onset Arthritis.', evaluationDate);
             }
             
             let risk_level = "No Risk";
@@ -612,23 +700,24 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
                 }
             }
 
-             return { riskLevel: risk_level, recommendation, followup, justification };
+             return createResult(data, algorithms.argentina, risk_level, recommendation, followup, justification, evaluationDate);
         }
     },
     miwguc: {
         name: 'MIWGUC Guidelines',
         questions: ['dateOfBirth', 'dateOfDiagnosis', 'subDiagnosis'],
         subDiagnosisOptions: ['Juvenile Idiopathic Arthritis', 'Systemic-onset Arthritis'],
-        calculate: (data: FormData): CalculationResult => {
+        calculate: (data: FormData, evaluationDate?: Date): CalculationResult => {
             const dob = parseDate(data.dateOfBirth);
             const dod = parseDate(data.dateOfDiagnosis);
             if (!dob || !dod) return { riskLevel: 'Error', recommendation: 'Invalid date format', followup: '', justification: '' };
 
-            const timeSinceDiagnosis = toPreciseYears(yearsDaysDiff(dod, new Date()));
+            const today = evaluationDate || new Date();
+            const timeSinceDiagnosis = toPreciseYears(yearsDaysDiff(dod, today));
             const ageAtOnset = toPreciseYears(yearsDaysDiff(dob, dod));
 
             if (data.subDiagnosis === 'Systemic-onset Arthritis') {
-                return { riskLevel: "Very Low Risk", recommendation: "No screening required", followup: "None", justification: "Very low risk due to diagnosis of Systemic-onset Arthritis." };
+                return createResult(data, algorithms.miwguc, "Very Low Risk", "No screening required", "None", "Very low risk due to diagnosis of Systemic-onset Arthritis.", evaluationDate);
             }
             
             let risk_level = "No Risk";
@@ -659,7 +748,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
                 }
             }
 
-            return { riskLevel: risk_level, recommendation, followup, justification };
+            return createResult(data, algorithms.miwguc, risk_level, recommendation, followup, justification, evaluationDate);
         }
     }
 };

@@ -1,17 +1,19 @@
-
 import React from 'react';
+import Tooltip from './Tooltip';
 
 interface SelectInputProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
+  tooltip?: string;
   options: { value: string | number; label: string }[];
 }
 
-const SelectInput: React.FC<SelectInputProps> = ({ label, id, options, ...props }) => {
+const SelectInput: React.FC<SelectInputProps> = ({ label, tooltip, id, options, ...props }) => {
   return (
     <div>
       {label && (
-        <label htmlFor={id} className="block text-gray-700 font-semibold text-sm tracking-wide mb-2">
+        <label htmlFor={id} className="flex items-center text-gray-700 font-semibold text-sm tracking-wide mb-2">
           {label}
+          {tooltip && <Tooltip content={tooltip} />}
         </label>
       )}
       <div className="relative">

@@ -36,8 +36,8 @@ const Form: React.FC<FormProps> = ({
   }
 
   const currentAge = dobDate ? yearsDaysDiff(dobDate, today).years : null;
-  // Block if current age is greater than or equal to maxAge (e.g., 16 or above blocks for maxAge 16)
-  const isAgeLimitExceeded = algorithm?.maxAge && currentAge !== null && currentAge >= algorithm.maxAge;
+  // Block if current age is strictly greater than maxAge (e.g., 16.x is allowed for maxAge 16, but 17 is blocked)
+  const isAgeLimitExceeded = !!(algorithm?.maxAge && currentAge !== null && currentAge > algorithm.maxAge);
   
   return (
     <div className="space-y-8 animate-fade-in">
@@ -79,6 +79,7 @@ const Form: React.FC<FormProps> = ({
           {algorithm.questions.includes('subDiagnosis') && (
             <SelectInput
               label="Sub-diagnosis"
+              tooltip="If the JIA subtype in uncertain, choose oligoarthritis"
               value={formData.subDiagnosis || ''}
               onChange={(e) => onFormChange('subDiagnosis', e.target.value)}
               options={[
@@ -91,6 +92,7 @@ const Form: React.FC<FormProps> = ({
           {algorithm.questions.includes('anaPositive') && (
             <RadioInput
               label="Antinuclear Antibody (ANA) Positive?"
+              tooltip="If the ANA profile is uncertain, choose positive"
               name="anaPositive"
               value={formData.anaPositive}
               onChange={(value) => onFormChange('anaPositive', value)}

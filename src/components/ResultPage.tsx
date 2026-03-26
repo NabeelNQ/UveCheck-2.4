@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { CalculationResult, FormData, Algorithm } from '../types';
 
@@ -52,6 +51,38 @@ const ResultPage: React.FC<ResultPageProps> = ({ result, inputs, algorithm, onNe
         <ResultCard title="Recommendation" content={result.recommendation} />
         <ResultCard title="Follow Up" content={result.followup} />
         <ResultCard title="Justification" content={result.justification} />
+        
+        {algorithm?.name === 'United Kingdom Guidelines' && (
+          <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-r-lg">
+            <p className="text-sm text-blue-800 italic leading-relaxed">
+              Methotrexate and other immunosuppressants may suppress onset of uveitis. If Methotrexate or any other immunosuppressants are stopped, screening should restart at 2 monthly intervals for 6 months.
+            </p>
+          </div>
+        )}
+        
+        {result.followupSchedule && result.followupSchedule.length > 0 && (
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <h4 className="font-bold text-gray-800 text-base mb-3">Upcoming Follow Up Schedule</h4>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="py-2 font-semibold text-gray-700">Date</th>
+                    <th className="py-2 font-semibold text-gray-700">Screening Type</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.followupSchedule.map((event, index) => (
+                    <tr key={index} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                      <td className="py-2 text-gray-600">{event.date}</td>
+                      <td className="py-2 text-gray-600">{event.description}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       <div>

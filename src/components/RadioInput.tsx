@@ -1,18 +1,22 @@
-
 import React from 'react';
+import Tooltip from './Tooltip';
 
 interface RadioInputProps {
   label: string;
+  tooltip?: string;
   name: string;
   value: boolean | undefined | null;
   onChange: (value: boolean) => void;
   options: { label: string; value: boolean }[];
 }
 
-const RadioInput: React.FC<RadioInputProps> = ({ label, name, value, onChange, options }) => {
+const RadioInput: React.FC<RadioInputProps> = ({ label, tooltip, name, value, onChange, options }) => {
   return (
     <div>
-      <p className="block text-gray-700 font-semibold text-sm tracking-wide mb-3">{label}</p>
+      <div className="flex items-center mb-3">
+        <p className="block text-gray-700 font-semibold text-sm tracking-wide">{label}</p>
+        {tooltip && <Tooltip content={tooltip} />}
+      </div>
       <div className="flex items-center space-x-6">
         {options.map(option => (
           <label key={option.label} className="flex items-center space-x-2 cursor-pointer group">
