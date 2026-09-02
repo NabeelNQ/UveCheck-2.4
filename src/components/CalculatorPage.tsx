@@ -1,15 +1,18 @@
-
 import React, { useState, useMemo } from 'react';
 import { Algorithm, FormData, CalculationResult, AlgorithmKey } from '../types';
 import { COUNTRIES } from '../constants';
 import { getAlgorithm } from '../services/algorithmService';
-import { parseDate } from '../services/dateService';
+import { parseDate, formatDate } from '../services/dateService';
 import Form from './Form';
 import ResultPage from './ResultPage';
 
+const getInitialFormData = (): Partial<FormData> => ({
+  screeningDate: formatDate(new Date()),
+});
+
 const CalculatorPage: React.FC = () => {
   const [selectedValue, setSelectedValue] = useState<string>('');
-  const [formData, setFormData] = useState<Partial<FormData>>({});
+  const [formData, setFormData] = useState<Partial<FormData>>(getInitialFormData());
   const [result, setResult] = useState<CalculationResult | null>(null);
   const [showResult, setShowResult] = useState<boolean>(false);
 
@@ -22,7 +25,7 @@ const CalculatorPage: React.FC = () => {
   const handleCountryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
     setSelectedValue(value);
-    setFormData({}); // Reset form data when country changes
+    setFormData(getInitialFormData()); // Reset form data when country changes while preserving default screening date
     setResult(null);
     setShowResult(false);
   };
@@ -30,8 +33,7 @@ const CalculatorPage: React.FC = () => {
   const handleFormChange = (field: keyof FormData, value: string | boolean | null) => {
     const newFormData = { ...formData, [field]: value };
 
-    // If date of birth changes, check if diagnosis date is still valid.
-    // If not, clear it.
+    // If date of birth changes, validate diagnosis date
     if (field === 'dateOfBirth' && newFormData.dateOfBirth && newFormData.dateOfDiagnosis) {
       const dob = parseDate(newFormData.dateOfBirth);
       const dod = parseDate(newFormData.dateOfDiagnosis);
@@ -53,18 +55,8 @@ const CalculatorPage: React.FC = () => {
 
   const handleCalculate = () => {
     if (algorithm && isFormComplete) {
-      // Vercel Analytics custom event
-      try {
-        if ((window as any).va) {
-          const country = COUNTRIES.find(c => c.value === selectedValue);
-          const guidelineLabel = country ? country.label : 'Unknown';
-          (window as any).va.track('GuidelineUsed', { guideline: guidelineLabel });
-        }
-      } catch (error) {
-        console.error('Failed to track Vercel Analytics event:', error);
-      }
-      
-      const calculationResult = algorithm.calculate(formData as FormData);
+      const evalDate = formData.screeningDate ? parseDate(formData.screeningDate) || undefined : undefined;
+      const calculationResult = algorithm.calculate(formData as FormData, evalDate);
       setResult(calculationResult);
       setShowResult(true);
     }
@@ -73,7 +65,7 @@ const CalculatorPage: React.FC = () => {
   const handleNewCalculation = () => {
     setShowResult(false);
     setResult(null);
-    setFormData({});
+    setFormData(getInitialFormData());
     setSelectedValue('');
   };
 

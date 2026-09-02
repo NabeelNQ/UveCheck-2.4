@@ -1,6 +1,6 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import Calendar from './Calendar';
+import { parseDate } from '../services/dateService';
 
 interface DateInputProps {
   label: string;
@@ -14,10 +14,10 @@ const DateInput: React.FC<DateInputProps> = ({ label, value, onChange, minDate, 
   const [showCalendar, setShowCalendar] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
+  const parsedValue = value ? parseDate(value) : null;
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let input = e.target.value.replace(/[^\d/]/g, '');
-    console.log('[DateInput] handleInputChange raw:', e.target.value, '-> sanitized:', input);
-
 
     if (input.length === 2 && !input.includes('/')) {
         input += '/';
@@ -34,7 +34,6 @@ const DateInput: React.FC<DateInputProps> = ({ label, value, onChange, minDate, 
     const day = String(date.getDate()).padStart(2, '0');
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const year = date.getFullYear();
-    console.log('[DateInput] handleDateSelect clicked:', date.toISOString(), '-> formatted:', `${day}/${month}/${year}`);
     onChange(`${day}/${month}/${year}`);
     setShowCalendar(false);
   };
@@ -76,7 +75,7 @@ const DateInput: React.FC<DateInputProps> = ({ label, value, onChange, minDate, 
       </div>
       {showCalendar && (
         <div className="absolute z-10 mt-2 bg-white rounded-lg shadow-2xl border border-gray-200">
-            <Calendar onDateSelect={handleDateSelect} minDate={minDate} maxDate={maxDate} />
+            <Calendar onDateSelect={handleDateSelect} selectedDate={parsedValue || undefined} minDate={minDate} maxDate={maxDate} />
         </div>
       )}
     </div>

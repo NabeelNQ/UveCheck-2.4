@@ -1,13 +1,19 @@
 
-export type QuestionKey = 'dateOfBirth' | 'dateOfDiagnosis' | 'subDiagnosis' | 'anaPositive' | 'onMethotrexate' | 'biologicalTreatment';
+export type QuestionKey = 'dateOfBirth' | 'dateOfDiagnosis' | 'screeningDate' | 'subDiagnosis' | 'anaPositive' | 'onMethotrexate' | 'biologicalTreatment';
 
 export interface FormData {
   dateOfBirth: string;
   dateOfDiagnosis: string;
+  screeningDate?: string;
   subDiagnosis: string;
   anaPositive: boolean;
   onMethotrexate: boolean;
   biologicalTreatment: string;
+}
+
+export interface FollowUpEvent {
+  date: string;
+  description: string;
 }
 
 export interface CalculationResult {
@@ -15,6 +21,7 @@ export interface CalculationResult {
   recommendation: string;
   followup: string;
   justification: string;
+  followupSchedule?: FollowUpEvent[];
 }
 
 export interface DateDifference {
@@ -28,7 +35,7 @@ export interface Algorithm {
   subDiagnosisOptions: string[];
   biologicalTreatmentOptions?: string[];
   maxAge?: number;
-  calculate: (data: FormData) => CalculationResult;
+  calculate: (data: FormData, evaluationDate?: Date) => CalculationResult;
 }
 
 export type AlgorithmKey = 

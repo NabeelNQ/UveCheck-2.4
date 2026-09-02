@@ -30,12 +30,20 @@ const Form: React.FC<FormProps> = ({
   const today = new Date();
   today.setHours(23, 59, 59, 999); // Allow selection of today
 
+  const screeningDateObj = formData.screeningDate ? parseDate(formData.screeningDate) : null;
+  const evalDate = screeningDateObj || today;
+
   const dobDate = formData.dateOfBirth ? parseDate(formData.dateOfBirth) : null;
   if (dobDate) {
     dobDate.setHours(0, 0, 0, 0); // Start of the day for minDate
   }
 
-  const currentAge = dobDate ? yearsDaysDiff(dobDate, today).years : null;
+  const dodDate = formData.dateOfDiagnosis ? parseDate(formData.dateOfDiagnosis) : null;
+  if (dodDate) {
+    dodDate.setHours(0, 0, 0, 0);
+  }
+
+  const currentAge = dobDate ? yearsDaysDiff(dobDate, evalDate).years : null;
   // Block if current age is strictly greater than maxAge (e.g., 16.x is allowed for maxAge 16, but 17 is blocked)
   const isAgeLimitExceeded = !!(algorithm?.maxAge && currentAge !== null && currentAge > algorithm.maxAge);
   
@@ -56,13 +64,13 @@ const Form: React.FC<FormProps> = ({
 
       {algorithm && (
         <div className="space-y-8 animate-fade-in">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             {algorithm.questions.includes('dateOfBirth') && (
               <DateInput
                 label="Date of Birth"
                 value={formData.dateOfBirth || ''}
                 onChange={(value) => onFormChange('dateOfBirth', value)}
-                maxDate={today}
+                maxDate={screeningDateObj || today}
               />
             )}
             {algorithm.questions.includes('dateOfDiagnosis') && (
@@ -71,6 +79,15 @@ const Form: React.FC<FormProps> = ({
                 value={formData.dateOfDiagnosis || ''}
                 onChange={(value) => onFormChange('dateOfDiagnosis', value)}
                 minDate={dobDate || undefined}
+                maxDate={screeningDateObj || today}
+              />
+            )}
+            {algorithm.questions.includes('screeningDate') && (
+              <DateInput
+                label="Last Screening Date"
+                value={formData.screeningDate || ''}
+                onChange={(value) => onFormChange('screeningDate', value)}
+                minDate={dodDate || dobDate || undefined}
                 maxDate={today}
               />
             )}

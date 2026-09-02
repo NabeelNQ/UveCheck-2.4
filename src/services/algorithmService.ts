@@ -6,7 +6,7 @@ const toPreciseYears = (diff: DateDifference): number => {
     return diff.years + (diff.days / 365.25);
 };
 
-const generateSchedule = (data: FormData, algorithm: Algorithm, initialResult: CalculationResult): FollowUpEvent[] | undefined => {
+const generateSchedule = (data: FormData, algorithm: Algorithm, initialResult: CalculationResult, evalDate?: Date): FollowUpEvent[] | undefined => {
     const recommendation = initialResult.recommendation;
     const followup = initialResult.followup;
     
@@ -15,7 +15,7 @@ const generateSchedule = (data: FormData, algorithm: Algorithm, initialResult: C
     }
 
     const schedule: FollowUpEvent[] = [];
-    const today = new Date();
+    const today = evalDate || (data.screeningDate ? parseDate(data.screeningDate) : null) || new Date();
     const dob = parseDate(data.dateOfBirth);
     const dod = parseDate(data.dateOfDiagnosis);
     if (!dob || !dod) return undefined;
@@ -110,7 +110,8 @@ const generateSchedule = (data: FormData, algorithm: Algorithm, initialResult: C
 const createResult = (data: FormData, algorithm: Algorithm, riskLevel: string, recommendation: string, followup: string, justification: string, evaluationDate?: Date): CalculationResult => {
     const result: CalculationResult = { riskLevel, recommendation, followup, justification };
     if (!evaluationDate) {
-        result.followupSchedule = generateSchedule(data, algorithm, result);
+        const evalDate = data.screeningDate ? parseDate(data.screeningDate) || undefined : undefined;
+        result.followupSchedule = generateSchedule(data, algorithm, result, evalDate);
     }
     return result;
 };
@@ -119,7 +120,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
     uk: {
         name: 'United Kingdom Guidelines',
         maxAge: 16,
-        questions: ['dateOfBirth', 'dateOfDiagnosis', 'subDiagnosis', 'anaPositive'],
+        questions: ['dateOfBirth', 'dateOfDiagnosis', 'screeningDate', 'subDiagnosis', 'anaPositive'],
         subDiagnosisOptions: [
             'Persistent Oligoarthritis', 'Extended Oligoarthritis', 'Psoriatic Arthritis', 
             'Enthesitis-related Arthritis', 'RF Negative Polyarthritis', 'RF Positive Polyarthritis',
@@ -130,7 +131,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             const dod = parseDate(data.dateOfDiagnosis);
             if (!dob || !dod) return { riskLevel: 'Error', recommendation: 'Invalid date format', followup: '', justification: '' };
 
-            const today = evaluationDate || new Date();
+            const today = evaluationDate || (data.screeningDate ? parseDate(data.screeningDate) : null) || new Date();
             const sinceDiagDiff = yearsDaysDiff(dod, today);
             const timeu = toPreciseYears(sinceDiagDiff);
 
@@ -250,7 +251,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
     nordic: {
         name: 'Nordic Guidelines',
         maxAge: 16,
-        questions: ['dateOfBirth', 'dateOfDiagnosis', 'subDiagnosis', 'anaPositive', 'onMethotrexate', 'biologicalTreatment'],
+        questions: ['dateOfBirth', 'dateOfDiagnosis', 'screeningDate', 'subDiagnosis', 'anaPositive', 'onMethotrexate', 'biologicalTreatment'],
         subDiagnosisOptions: [
             'Oligoarthritis', 'RF Negative Polyarthritis', 'Psoriatic Arthritis', 
             'RF Positive Arthritis', 'Enthesitis related Arthritis', 'Systemic Onset Arthritis', 
@@ -262,7 +263,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             const dod = parseDate(data.dateOfDiagnosis);
             if (!dob || !dod) return { riskLevel: 'Error', recommendation: 'Invalid date format', followup: '', justification: '' };
             
-            const today = evaluationDate || new Date();
+            const today = evaluationDate || (data.screeningDate ? parseDate(data.screeningDate) : null) || new Date();
             const currentAge = toPreciseYears(yearsDaysDiff(dob, today));
             const timeSinceDiagnosis = toPreciseYears(yearsDaysDiff(dod, today));
             const ageAtOnset = toPreciseYears(yearsDaysDiff(dob, dod));
@@ -335,7 +336,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
     },
     us_pakistan: {
         name: 'US and Pakistan Guidelines',
-        questions: ['dateOfBirth', 'dateOfDiagnosis', 'subDiagnosis', 'anaPositive'],
+        questions: ['dateOfBirth', 'dateOfDiagnosis', 'screeningDate', 'subDiagnosis', 'anaPositive'],
         subDiagnosisOptions: [
             'Extended Oligoarthritis', 'Persistent Oligoarthritis', 'RF Negative Polyarthritis', 
             'Psoriatic Arthritis', 'RF Positive Arthritis', 'Enthesitis related Arthritis', 
@@ -346,7 +347,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             const dod = parseDate(data.dateOfDiagnosis);
             if (!dob || !dod) return { riskLevel: 'Error', recommendation: 'Invalid date format', followup: '', justification: '' };
 
-            const today = evaluationDate || new Date();
+            const today = evaluationDate || (data.screeningDate ? parseDate(data.screeningDate) : null) || new Date();
             const timeSinceDiag = yearsDaysDiff(dod, today);
             const onset = yearsDaysDiff(dob, dod);
 
@@ -394,7 +395,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
     },
     germany: {
         name: 'German Guidelines',
-        questions: ['dateOfBirth', 'dateOfDiagnosis', 'subDiagnosis', 'anaPositive'],
+        questions: ['dateOfBirth', 'dateOfDiagnosis', 'screeningDate', 'subDiagnosis', 'anaPositive'],
         subDiagnosisOptions: [
             'Persistent Oligoarthritis', 'Extended Oligoarthritis', 'RF Negative Polyarthritis', 
             'Psoriatic Arthritis', 'RF Positive Arthritis', 'Enthesitis related Arthritis', 
@@ -405,7 +406,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             const dod = parseDate(data.dateOfDiagnosis);
             if (!dob || !dod) return { riskLevel: 'Error', recommendation: 'Invalid date format', followup: '', justification: '' };
 
-            const today = evaluationDate || new Date();
+            const today = evaluationDate || (data.screeningDate ? parseDate(data.screeningDate) : null) || new Date();
             const timeSinceDiagnosis = toPreciseYears(yearsDaysDiff(dod, today));
             const ageAtOnset = toPreciseYears(yearsDaysDiff(dob, dod));
 
@@ -452,7 +453,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
     spain_portugal: {
         name: 'Spain and Portugal Guidelines',
         maxAge: 16,
-        questions: ['dateOfBirth', 'dateOfDiagnosis', 'subDiagnosis', 'anaPositive'],
+        questions: ['dateOfBirth', 'dateOfDiagnosis', 'screeningDate', 'subDiagnosis', 'anaPositive'],
         subDiagnosisOptions: [
             'Persistent Oligoarthritis', 'Extended Oligoarthritis', 'RF Negative Polyarthritis', 
             'Psoriatic Arthritis', 'RF Positive Arthritis', 'Enthesitis related Arthritis', 
@@ -463,7 +464,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             const dod = parseDate(data.dateOfDiagnosis);
             if (!dob || !dod) return { riskLevel: 'Error', recommendation: 'Invalid date format', followup: '', justification: '' };
 
-            const today = evaluationDate || new Date();
+            const today = evaluationDate || (data.screeningDate ? parseDate(data.screeningDate) : null) || new Date();
             const currentAge = toPreciseYears(yearsDaysDiff(dob, today));
             const timeSinceDiagnosis = toPreciseYears(yearsDaysDiff(dod, today));
             const ageAtOnset = toPreciseYears(yearsDaysDiff(dob, dod));
@@ -513,7 +514,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
     czech_slovak: {
         name: 'Czech and Slovak Guidelines',
         maxAge: 18,
-        questions: ['dateOfBirth', 'dateOfDiagnosis', 'subDiagnosis', 'anaPositive'],
+        questions: ['dateOfBirth', 'dateOfDiagnosis', 'screeningDate', 'subDiagnosis', 'anaPositive'],
         subDiagnosisOptions: [
             'Persistent Oligoarthritis', 'Extended Oligoarthritis', 'RF Negative Polyarthritis', 
             'Psoriatic Arthritis', 'RF Positive Polyarthritis', 'Systemic Onset Arthritis', 'HLAB27+ Arthritis'
@@ -523,7 +524,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             const dod = parseDate(data.dateOfDiagnosis);
             if (!dob || !dod) return { riskLevel: 'Error', recommendation: 'Invalid date format', followup: '', justification: '' };
 
-            const today = evaluationDate || new Date();
+            const today = evaluationDate || (data.screeningDate ? parseDate(data.screeningDate) : null) || new Date();
             const age = yearsDaysDiff(dob, today);
             const timeu = yearsDaysDiff(dod, today);
             const onset = yearsDaysDiff(dob, dod);
@@ -590,7 +591,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
                 }
             } else if (group2) {
                 if (onset_leq_6 || data.anaPositive) {
-                    if (timeu.years === 0 && timeu.days < 183) {
+                    if (timeu.years === 0 && timeu.days < 183) { 
                         recommendation = "Every 2 months";
                         followup = "Continue into adulthood";
                         risk_level = "High Risk";
@@ -642,7 +643,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
     argentina: {
         name: 'Argentina Guidelines',
         maxAge: 21,
-        questions: ['dateOfBirth', 'dateOfDiagnosis', 'subDiagnosis', 'anaPositive'],
+        questions: ['dateOfBirth', 'dateOfDiagnosis', 'screeningDate', 'subDiagnosis', 'anaPositive'],
         subDiagnosisOptions: [
             'Persistent Oligoarthritis', 'Extended Oligoarthritis', 'RF Negative Polyarthritis', 
             'Psoriatic Arthritis', 'RF Positive Arthritis', 'Enthesitis related Arthritis', 'Systemic onset Arthritis'
@@ -652,7 +653,7 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             const dod = parseDate(data.dateOfDiagnosis);
             if (!dob || !dod) return { riskLevel: 'Error', recommendation: 'Invalid date format', followup: '', justification: '' };
 
-            const today = evaluationDate || new Date();
+            const today = evaluationDate || (data.screeningDate ? parseDate(data.screeningDate) : null) || new Date();
             const age = yearsDaysDiff(dob, today);
             const timeSinceDiagnosis = yearsDaysDiff(dod, today);
             const onset = yearsDaysDiff(dob, dod);
@@ -705,16 +706,22 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
     },
     miwguc: {
         name: 'MIWGUC Guidelines',
-        questions: ['dateOfBirth', 'dateOfDiagnosis', 'subDiagnosis'],
+        maxAge: 18,
+        questions: ['dateOfBirth', 'dateOfDiagnosis', 'screeningDate', 'subDiagnosis'],
         subDiagnosisOptions: ['Juvenile Idiopathic Arthritis', 'Systemic-onset Arthritis'],
         calculate: (data: FormData, evaluationDate?: Date): CalculationResult => {
             const dob = parseDate(data.dateOfBirth);
             const dod = parseDate(data.dateOfDiagnosis);
             if (!dob || !dod) return { riskLevel: 'Error', recommendation: 'Invalid date format', followup: '', justification: '' };
 
-            const today = evaluationDate || new Date();
-            const timeSinceDiagnosis = toPreciseYears(yearsDaysDiff(dod, today));
-            const ageAtOnset = toPreciseYears(yearsDaysDiff(dob, dod));
+            const today = evaluationDate || (data.screeningDate ? parseDate(data.screeningDate) : null) || new Date();
+            const age = yearsDaysDiff(dob, today);
+            const timeSinceDiagnosis = yearsDaysDiff(dod, today);
+            const onset = yearsDaysDiff(dob, dod);
+
+            if (age.years > 18 || (age.years === 18 && age.days > 0)) {
+                return createResult(data, algorithms.miwguc, "Very Low Risk", "No screening required", "None", "This is a guideline for patients up to age 18.", evaluationDate);
+            }
 
             if (data.subDiagnosis === 'Systemic-onset Arthritis') {
                 return createResult(data, algorithms.miwguc, "Very Low Risk", "No screening required", "None", "Very low risk due to diagnosis of Systemic-onset Arthritis.", evaluationDate);
@@ -726,24 +733,29 @@ const algorithms: Record<AlgorithmKey, Algorithm> = {
             let justification = "None";
             
             if (data.subDiagnosis === 'Juvenile Idiopathic Arthritis') {
-                followup = "Follow-up continues into adulthood";
-                if (ageAtOnset < 7) {
-                    if (timeSinceDiagnosis <= 1) {
+                followup = "Follow-up continues until age 18";
+                const onset_lt_7 = (onset.years < 7);
+                const timeu_leq_1 = (timeSinceDiagnosis.years < 1) || (timeSinceDiagnosis.years === 1 && timeSinceDiagnosis.days === 0);
+                const timeu_leq_4 = (timeSinceDiagnosis.years < 4) || (timeSinceDiagnosis.years === 4 && timeSinceDiagnosis.days === 0);
+                const timeu_leq_7 = (timeSinceDiagnosis.years < 7) || (timeSinceDiagnosis.years === 7 && timeSinceDiagnosis.days === 0);
+
+                if (onset_lt_7) {
+                    if (timeu_leq_1) {
                         risk_level = "High Risk"; recommendation = "Every 2 Months"; justification = "High risk due to JIA diagnosed before 7 years of age and within the last year.";
-                    } else if (timeSinceDiagnosis <= 4) {
+                    } else if (timeu_leq_4) {
                         risk_level = "High Risk"; recommendation = "Every 3–4 Months"; justification = "High risk due to JIA diagnosed before 7 years of age and within 4 years.";
-                    } else if (timeSinceDiagnosis <= 7) {
+                    } else if (timeu_leq_7) {
                         risk_level = "Medium Risk"; recommendation = "Every 6 Months"; justification = "Medium risk due to JIA diagnosed before 7 years of age and within 7 years.";
                     } else {
                         risk_level = "Low Risk"; recommendation = "Every 12 Months"; justification = "Low risk due to JIA diagnosed before 7 years of age and over 7 years ago.";
                     }
                 } else { 
-                    if (timeSinceDiagnosis <= 1) {
+                    if (timeu_leq_1) {
                         risk_level = "High Risk"; recommendation = "Every 3–4 Months"; justification = "High risk due to JIA diagnosed at or after 7 years of age and within the last year.";
-                    } else if (timeSinceDiagnosis <= 4) {
+                    } else if (timeu_leq_4) {
                         risk_level = "Medium Risk"; recommendation = "Every 6 Months"; justification = "Medium risk due to JIA diagnosed at or after 7 years of age and within 4 years.";
                     } else {
-                        risk_level = "Low Risk"; recommendation = "Every 12 Months"; justification = "Low risk due to JIA diagnosed at or after 7 years of age and over 4 years ago";
+                        risk_level = "Low Risk"; recommendation = "Every 12 Months"; justification = "Low risk due to JIA diagnosed at or after 7 years of age and over 4 years ago.";
                     }
                 }
             }

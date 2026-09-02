@@ -1,14 +1,21 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface CalendarProps {
   onDateSelect: (date: Date) => void;
+  selectedDate?: Date;
   minDate?: Date;
   maxDate?: Date;
 }
 
-const Calendar: React.FC<CalendarProps> = ({ onDateSelect, minDate, maxDate }) => {
-  const [displayDate, setDisplayDate] = useState(maxDate || new Date());
+const Calendar: React.FC<CalendarProps> = ({ onDateSelect, selectedDate, minDate, maxDate }) => {
+  const [displayDate, setDisplayDate] = useState(selectedDate || maxDate || new Date());
+
+  useEffect(() => {
+    if (selectedDate) {
+      setDisplayDate(selectedDate);
+    }
+  }, [selectedDate]);
 
   const year = displayDate.getFullYear();
   const month = displayDate.getMonth();
@@ -77,48 +84,58 @@ const Calendar: React.FC<CalendarProps> = ({ onDateSelect, minDate, maxDate }) =
     const max = maxDate ? new Date(maxDate) : null;
     if (max) max.setHours(0, 0, 0, 0);
 
-    const cells = [];
+    // Generate all dates first to ensure stable references in the map
+    const dates = Array.from({ length: 42 }, (_, i) => {
+        const d = new Date(startDate);
+        d.setDate(startDate.getDate() + i);
+        return d;
+    });
 
-    for (let i = 0; i < 42; i++) {
-      const dateForCell = new Date(startDate);
-      dateForCell.setDate(startDate.getDate() + i);
-      
-      // Use toDateString for key to avoid timezone issues with toISOString at midnight
-      const dateKey = dateForCell.toDateString();
-      const day = dateForCell.getDate();
-      
-      const isCurrentMonth = dateForCell.getMonth() === month;
-      const isToday = dateForCell.getTime() === today.getTime();
-      const isDisabled = (min && dateForCell < min) || (max && dateForCell > max);
-
-      const getCellClasses = () => {
-        if (isDisabled) return 'text-gray-300 cursor-not-allowed';
-        if (!isCurrentMonth) return 'text-gray-300';
-        
-        let classes = 'cursor-pointer ';
-        if (isToday) {
-            classes += 'bg-black text-white';
-        } else {
-            classes += 'text-gray-800 hover:bg-black hover:text-white';
-        }
-        return classes;
-      };
-
-      cells.push(
-        <div
-          key={dateKey}
-          className={`flex items-center justify-center h-8 w-8 text-sm rounded-full transition-colors duration-200 ${getCellClasses()}`}
-          onClick={() => {
-            if (!isDisabled && isCurrentMonth) {
-                onDateSelect(dateForCell);
+    return (
+      <div className="grid grid-cols-7 p-2">
+        {dates.map((dateForCell) => {
+            const dateKey = dateForCell.toDateString();
+            const day = dateForCell.getDate();
+            
+            const isCurrentMonth = dateForCell.getMonth() === month;
+            const isToday = dateForCell.getTime() === today.getTime();
+            const isSelected = selectedDate && (
+                dateForCell.getFullYear() === selectedDate.getFullYear() &&
+                dateForCell.getMonth() === selectedDate.getMonth() &&
+                dateForCell.getDate() === selectedDate.getDate()
+            );
+            const isDisabled = (min && dateForCell < min) || (max && dateForCell > max);
+            
+            let className = "flex items-center justify-center h-8 w-8 text-sm rounded-full transition-colors duration-200 ";
+            
+            if (isDisabled) {
+                className += 'text-gray-300 cursor-not-allowed';
+            } else if (!isCurrentMonth) {
+                className += 'text-gray-300';
+            } else if (isSelected) {
+                className += 'bg-black text-white font-bold cursor-pointer';
+            } else if (isToday) {
+                className += 'border border-black text-black font-semibold cursor-pointer hover:bg-gray-100';
+            } else {
+                className += 'text-gray-800 hover:bg-black hover:text-white cursor-pointer';
             }
-          }}
-        >
-          {day}
-        </div>
-      );
-    }
-    return <div className="grid grid-cols-7 p-2">{cells}</div>;
+
+            return (
+                <div
+                  key={dateKey}
+                  className={className}
+                  onClick={() => {
+                    if (!isDisabled && isCurrentMonth) {
+                        onDateSelect(dateForCell);
+                    }
+                  }}
+                >
+                  {day}
+                </div>
+            );
+        })}
+      </div>
+    );
   };
 
   return (

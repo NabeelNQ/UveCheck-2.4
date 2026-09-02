@@ -22,6 +22,7 @@ const riskStyles: { [key: string]: { border: string; text: string; } } = {
 const questionLabels: Record<string, string> = {
   dateOfBirth: "Patient's Date of Birth",
   dateOfDiagnosis: "Date of Diagnosis of Arthritis",
+  screeningDate: "Last Screening Date",
   subDiagnosis: "Sub-diagnosis of Arthritis",
   anaPositive: "Antinuclear Antibody (ANA)",
   onMethotrexate: "On Methotrexate",
