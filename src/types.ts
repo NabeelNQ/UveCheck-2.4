@@ -35,7 +35,7 @@ export interface Algorithm {
   subDiagnosisOptions: string[];
   biologicalTreatmentOptions?: string[];
   maxAge?: number;
-  calculate: (data: FormData, evaluationDate?: Date) => CalculationResult;
+  calculate: (data: FormData, evaluationDate?: Date, isSimulation?: boolean) => CalculationResult;
 }
 
 export type AlgorithmKey = 
