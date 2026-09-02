@@ -5,32 +5,23 @@ interface IntroPageProps {
 }
 
 const guidelines = [
-  { title: "Argentina – National Clinical Practice Guidelines for JIA (2011)", href: "https://www.reumatologia.org.ar/recursos/guia_artritis_idiopatica_2011.pdf" },
-  { title: "Czech Republic & Slovakia – SHARE Initiative Adaptation (2020)", href: "https://doi.org/10.31348/2020/7" },
-  { title: "Germany – Nationwide study with proposed guideline modifications (2007)", href: "https://doi.org/10.1093/rheumatology/kem053" },
-  { title: "MIWGUC (Multinational Group) – Practical global approach (2024)", href: "https://doi.org/10.1136/bjo-2023-324406" },
-  { title: "Nordic Countries – Nordic screening guideline (2022)", href: "https://doi.org/10.1111/aos.15299" },
-  { title: "Portugal – Joint Ophthalmology & Paediatric Rheumatology guidelines (2021)", href: "https://arpopenrheumatology.com/article/view/15556" },
-  { title: "Spain – Treatment recommendations for JIA-associated uveitis (2014)", href: "https://doi.org/10.1007/s11926-014-0437-4" },
-  { title: "United States & Pakistan – ACR/Arthritis Foundation guideline (2019)", href: "https://doi.org/10.1002/acr.23871" },
+    { title: "Argentina – National Clinical Practice Guidelines for JIA (2011)", href: "https://www.reumatologia.org.ar/recursos/guia_artritis_idiopatica_2011.pdf" },
+    { title: "Czech Republic & Slovakia – SHARE Initiative Adaptation (2020)", href: "https://doi.org/10.31348/2020/7" },
+    { title: "Germany – Nationwide study with proposed guideline modifications (2007)", href: "https://doi.org/10.1093/rheumatology/kem053" },
+    { title: "MIWGUC (Multinational Group) – Practical global approach (2024)", href: "https://doi.org/10.1136/bjo-2023-324406" },
+    { title: "Nordic Countries – Nordic screening guideline (2022)", href: "https://doi.org/10.1111/aos.15299" },
+    { title: "Portugal – Joint Ophthalmology & Paediatric Rheumatology guidelines (2021)", href: "https://arpopenrheumatology.com/article/view/15556" },
+    { title: "Spain – Treatment recommendations for JIA-associated uveitis (2014)", href: "https://doi.org/10.1007/s11926-014-0437-4" },
+    { title: "United Kingdom – Guidelines for Screening for Uveitis in JIA (RCOphth / BSPAR)", href: "https://www.rcophth.ac.uk/resources-listing/guidelines-for-screening-for-uveitis-in-juvenile-idiopathic-arthritis-jia/" },
+    { title: "United States & Pakistan – ACR/Arthritis Foundation guideline (2019)", href: "https://doi.org/10.1002/acr.23871" },
 ];
 
 const IntroPage: React.FC<IntroPageProps> = ({ onStart }) => {
   return (
     <div className="w-full max-w-3xl mx-auto bg-white rounded-2xl shadow-2xl p-6 sm:p-10 animate-fade-in text-left">
-      
-      {/* Responsive header: stacks on small screens, side-by-side on sm+ */}
-      <header className="flex flex-col sm:flex-row justify-between items-center text-center sm:text-left mb-8 gap-4">
-        <div>
-          <h1 className="text-5xl sm:text-6xl font-bold text-gray-900">UveCheck</h1>
-          <p className="text-gray-600 text-lg mt-2">Predict the risk of uveitis in children</p>
-        </div>
-
-        <img
-          src="/WSPOS_Logo.png"
-          alt="WSPOS Logo"
-          className="w-28 sm:w-44 object-contain"
-        />
+      <header className="text-center mb-8">
+        <h1 className="text-5xl sm:text-6xl font-bold text-gray-900">UveCheck</h1>
+        <p className="text-gray-600 text-lg mt-2">Predict the risk of uveitis in children</p>
       </header>
 
       <section className="space-y-4 text-gray-700 text-base">
@@ -42,33 +33,14 @@ const IntroPage: React.FC<IntroPageProps> = ({ onStart }) => {
         </p>
       </section>
 
-      {/* Get Started button with equal spacing before and after */}
-      <div className="my-8 flex justify-center">
-        <button
-          onClick={onStart}
-          className="w-full sm:w-auto bg-black hover:bg-gray-800 text-white font-bold py-3 px-10 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
-        >
-          Get Started
-        </button>
-      </div>
-
       <section className="my-8">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">
-          Guideline-Driven, Globally Informed
-        </h2>
-        <p className="mb-6 text-gray-700 text-base">
-          UveCheck integrates evidence-based recommendations from leading global guidelines:
-        </p>
+        <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Guideline-Driven, Globally Informed</h2>
+        <p className="mb-6 text-gray-700 text-base">UveCheck integrates evidence-based recommendations from leading global guidelines:</p>
         <ul className="space-y-4 text-base">
           {guidelines.map(({ title, href }) => (
             <li key={title}>
               {href ? (
-                <a
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-start text-gray-700 hover:text-black transition-colors duration-200 group"
-                >
+                <a href={href} target="_blank" rel="noopener noreferrer" className="flex items-start text-gray-700 hover:text-black transition-colors duration-200 group">
                   <span className="text-xl mr-3">👉</span>
                   <span className="group-hover:underline">{title}</span>
                 </a>
@@ -82,30 +54,36 @@ const IntroPage: React.FC<IntroPageProps> = ({ onStart }) => {
           ))}
         </ul>
         <p className="mt-6 text-gray-700 text-base">
-          This multi-regional foundation makes UveCheck adaptable to diverse healthcare systems while maintaining scientific rigor and clinical reliability.
+            This multi-regional foundation makes UveCheck adaptable to diverse healthcare systems while maintaining scientific rigor and clinical reliability.
         </p>
       </section>
 
       <section className="my-8">
         <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Why UveCheck?</h2>
         <ul className="space-y-3 text-gray-700 text-base">
-          <li className="flex items-center">
-            <span className="text-green-500 mr-3">✅</span>
-            <strong>Evidence-based</strong> – Built on international best practices
-          </li>
-          <li className="flex items-center">
-            <span className="text-green-500 mr-3">✅</span>
-            <strong>Personalized</strong> – Tailored screening recommendations per child
-          </li>
-          <li className="flex items-center">
-            <span className="text-green-500 mr-3">✅</span>
-            <strong>Proactive</strong> – Helps prevent avoidable vision loss
-          </li>
+          <li className="flex items-center"><span className="text-green-500 mr-3">✅</span> <strong>Evidence-based</strong> – Built on international best practices</li>
+          <li className="flex items-center"><span className="text-green-500 mr-3">✅</span> <strong>Personalized</strong> – Tailored screening recommendations per child</li>
+          <li className="flex items-center"><span className="text-green-500 mr-3">✅</span> <strong>Proactive</strong> – Helps prevent avoidable vision loss</li>
         </ul>
         <p className="mt-4 font-semibold text-gray-800 text-base">
-          Stay informed. Stay proactive. Strengthen uveitis care with UveCheck.
+            Stay informed. Stay proactive. Strengthen uveitis care with UveCheck.
         </p>
       </section>
+
+      <div className="pt-4 mt-8 flex flex-col items-center gap-6">
+        <button
+          onClick={onStart}
+          className="w-full sm:w-auto bg-black hover:bg-gray-800 text-white font-bold py-3 px-10 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+        >
+          Get Started
+        </button>
+
+        <div className="inline-flex items-center gap-2 bg-gray-100 border border-gray-200 text-gray-600 text-xs font-semibold px-3.5 py-1 rounded-full">
+          <span>Version 2.5</span>
+          <span className="text-gray-300">&bull;</span>
+          <span>Last Updated: August 2026</span>
+        </div>
+      </div>
     </div>
   );
 };
